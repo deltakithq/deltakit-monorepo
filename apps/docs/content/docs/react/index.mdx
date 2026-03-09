@@ -1,0 +1,62 @@
+---
+title: Overview
+description: React hooks and helpers for DeltaKit streaming chat.
+icon: House
+---
+
+`@deltakit/react` provides React-specific hooks and helpers that wrap `@deltakit/core` for seamless streaming chat integration.
+
+## Packages
+
+- **`useStreamChat`** — The core hook that manages the full streaming lifecycle: state, network, cancellation, and event handling.
+- **`EventHelpers`** — Helper methods for mutating message state inside `onEvent` callbacks.
+
+## Installation
+
+```bash tab="pnpm"
+pnpm add @deltakit/react
+```
+
+```bash tab="npm"
+npm install @deltakit/react
+```
+
+```bash tab="yarn"
+yarn add @deltakit/react
+```
+
+This installs both `@deltakit/react` and `@deltakit/core` (its dependency).
+
+## Quick Example
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+
+function Chat() {
+  const { messages, isLoading, sendMessage } = useStreamChat({
+    api: "/api/chat",
+  });
+
+  return (
+    <div>
+      {messages.map((msg) => (
+        <div key={msg.id}>
+          <strong>{msg.role}:</strong>{" "}
+          {msg.parts
+            .filter((p) => p.type === "text")
+            .map((p) => p.text)
+            .join("")}
+        </div>
+      ))}
+      <button onClick={() => sendMessage("Hello!")} disabled={isLoading}>
+        Send
+      </button>
+    </div>
+  );
+}
+```
+
+## Next Steps
+
+- [useStreamChat](/docs/react/use-stream-chat) — Full hook API reference
+- [EventHelpers](/docs/react/event-helpers) — Event callback helpers

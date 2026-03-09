@@ -1,0 +1,126 @@
+---
+title: SSE Events
+description: Server-Sent Event types used by the streaming protocol.
+---
+
+SSE events are the wire format between your server and DeltaKit. Each event is a JSON object with a `type` field, sent as a `data:` line in the SSE stream.
+
+```ts
+import type { SSEEvent, TextDeltaEvent, ToolCallEvent, ToolResultEvent } from "@deltakit/react";
+```
+
+## SSEEvent
+
+Union of all built-in event types:
+
+```ts
+type SSEEvent = TextDeltaEvent | ToolCallEvent | ToolResultEvent;
+```
+
+## TextDeltaEvent
+
+A chunk of text to append to the assistant's response. This is the most common event type.
+
+```ts
+interface TextDeltaEvent {
+  type: "text_delta";
+  delta: string;
+}
+```
+
+**Wire format:**
+
+```
+data: {"type":"text_delta","delta":"Hello"}
+```
+
+The default event handler in `useStreamChat` only processes `text_delta` events. All other event types require a custom `onEvent` handler.
+
+## ToolCallEvent
+
+The assistant is invoking a tool.
+
+```ts
+interface ToolCallEvent {
+  type: "tool_call";
+  tool_name: string;
+  argument: string;
+  call_id?: string;
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tool_name` | `string` | Name of the tool being invoked |
+| `argument` | `string` | JSON string of arguments |
+| `call_id` | `string?` | ID to match this call with its result |
+
+**Wire format:**
+
+```
+data: {"type":"tool_call","tool_name":"get_weather","argument":"{\"city\":\"London\"}","call_id":"call_1"}
+```
+
+## ToolResultEvent
+
+The result of a tool execution.
+
+```ts
+interface ToolResultEvent {
+  type: "tool_result";
+  call_id: string;
+  output: string;
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `call_id` | `string` | Matches the `call_id` from the corresponding `ToolCallEvent` |
+| `output` | `string` | The tool's output |
+
+**Wire format:**
+
+```
+data: {"type":"tool_result","call_id":"call_1","output":"Sunny, 18°C"}
+```
+
+## Stream Termination
+
+The stream ends with the `[DONE]` sentinel:
+
+```
+data: [DONE]
+```
+
+This is not a JSON event — `parseSSEStream` recognizes it as a termination signal and stops the generator.
+
+## Custom Event Types
+
+You can define your own event types and pass them as the second generic to `useStreamChat`:
+
+```ts
+interface ProgressEvent {
+  type: "progress";
+  step: string;
+  percent: number;
+}
+
+type MyEvent = SSEEvent | ProgressEvent;
+
+useStreamChat<ContentPart, MyEvent>({
+  api: "/api/chat",
+  onEvent: (event, { appendText }) => {
+    switch (event.type) {
+      case "text_delta":
+        appendText(event.delta);
+        break;
+      case "progress":
+        // event.step and event.percent are typed
+        console.log(`${event.step}: ${event.percent}%`);
+        break;
+    }
+  },
+});
+```
+
+Your server can send any JSON as a `data:` line — `parseSSEStream` will yield it. The type system ensures your `onEvent` handler covers all cases.

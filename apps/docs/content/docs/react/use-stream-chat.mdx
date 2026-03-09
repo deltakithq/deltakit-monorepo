@@ -1,0 +1,254 @@
+---
+title: useStreamChat
+description: The core React hook for streaming chat over SSE.
+---
+
+`useStreamChat` manages the full lifecycle of a streaming chat: state, network requests, SSE parsing, cancellation, and event handling.
+
+```ts
+import { useStreamChat } from "@deltakit/react";
+```
+
+## Signature
+
+```ts
+function useStreamChat<
+  TPart extends { type: string } = ContentPart,
+  TEvent extends { type: string } = SSEEvent,
+>(options: UseStreamChatOptions<TPart, TEvent>): UseStreamChatReturn<TPart>
+```
+
+## Options
+
+### `api` (required)
+
+**Type:** `string`
+
+The endpoint URL to POST messages to.
+
+```ts
+useStreamChat({ api: "/api/chat" });
+```
+
+### `initialMessages`
+
+**Type:** `Message<TPart>[]`
+
+Pre-populate the conversation, e.g. from a database or `fromOpenAiAgents`.
+
+```ts
+useStreamChat({
+  api: "/api/chat",
+  initialMessages: [
+    { id: "1", role: "user", parts: [{ type: "text", text: "Hello" }] },
+    { id: "2", role: "assistant", parts: [{ type: "text", text: "Hi!" }] },
+  ],
+});
+```
+
+### `headers`
+
+**Type:** `Record<string, string>`
+
+Extra headers merged into every fetch request. `Content-Type: application/json` is always included.
+
+```ts
+useStreamChat({
+  api: "/api/chat",
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
+});
+```
+
+### `body`
+
+**Type:** `Record<string, unknown>`
+
+Extra fields merged into the POST body alongside `message`.
+
+```ts
+useStreamChat({
+  api: "/api/chat",
+  body: {
+    model: "gpt-4",
+    temperature: 0.7,
+    sessionId: "abc123",
+  },
+});
+// POST body: { message: "...", model: "gpt-4", temperature: 0.7, sessionId: "abc123" }
+```
+
+### `onEvent`
+
+**Type:** `(event: TEvent, helpers: EventHelpers<TPart>) => void`
+
+Custom handler for each SSE event. When provided, this **replaces** the default `text_delta` handling entirely.
+
+```ts
+useStreamChat({
+  api: "/api/chat",
+  onEvent: (event, { appendText, appendPart }) => {
+    switch (event.type) {
+      case "text_delta":
+        appendText(event.delta);
+        break;
+      case "tool_call":
+        appendPart({
+          type: "tool_call",
+          tool_name: event.tool_name,
+          argument: event.argument,
+          callId: event.call_id,
+        });
+        break;
+    }
+  },
+});
+```
+
+See [EventHelpers](/docs/react/event-helpers) for the full helpers API and [Custom Events](/docs/guides/custom-events) for patterns.
+
+### `onFinish`
+
+**Type:** `(messages: Message<TPart>[]) => void`
+
+Called when the stream ends successfully. Receives the full message array.
+
+```ts
+useStreamChat({
+  api: "/api/chat",
+  onFinish: (messages) => {
+    // Persist to database, analytics, etc.
+    saveConversation(messages);
+  },
+});
+```
+
+### `onMessage`
+
+**Type:** `(message: Message<TPart>) => void`
+
+Called when a new message is added. Fires for both user messages (immediately on send) and assistant messages (when the stream completes).
+
+```ts
+useStreamChat({
+  api: "/api/chat",
+  onMessage: (message) => {
+    console.log(`New ${message.role} message:`, message.id);
+  },
+});
+```
+
+### `onError`
+
+**Type:** `(error: Error) => void`
+
+Called on fetch or stream errors. Abort errors (from calling `stop()`) are swallowed and do not trigger this callback.
+
+```ts
+useStreamChat({
+  api: "/api/chat",
+  onError: (error) => {
+    toast.error(error.message);
+  },
+});
+```
+
+## Return Values
+
+### `messages`
+
+**Type:** `Message<TPart>[]`
+
+Chronological list of all messages. Updates in real-time during streaming.
+
+### `isLoading`
+
+**Type:** `boolean`
+
+`true` while streaming an assistant response. `sendMessage` is ignored while loading.
+
+### `error`
+
+**Type:** `Error | null`
+
+The most recent error, or `null`. Reset to `null` on each new `sendMessage` call.
+
+### `sendMessage`
+
+**Type:** `(text: string) => void`
+
+Send a user message and begin streaming the assistant response. Creates both a user message and an empty assistant message, then starts the SSE stream. Ignored if already loading.
+
+### `stop`
+
+**Type:** `() => void`
+
+Abort the current in-flight stream. Safe to call when not streaming.
+
+### `setMessages`
+
+**Type:** `Dispatch<SetStateAction<Message<TPart>[]>>`
+
+Direct React state setter. Use for programmatic manipulation:
+
+```ts
+const { setMessages } = useStreamChat({ api: "/api/chat" });
+
+// Clear conversation
+setMessages([]);
+
+// Remove last message
+setMessages((prev) => prev.slice(0, -1));
+```
+
+## Generic Types
+
+The hook accepts two type parameters for full type safety with custom content:
+
+```ts
+useStreamChat<TPart, TEvent>(options)
+```
+
+- **`TPart`** — Shape of content parts in messages. Defaults to `ContentPart`. Must have `{ type: string }`.
+- **`TEvent`** — Shape of SSE events from the server. Defaults to `SSEEvent`. Must have `{ type: string }`.
+
+```ts
+interface StatusPart {
+  type: "status";
+  status: "thinking" | "searching";
+}
+
+interface StatusEvent {
+  type: "status_update";
+  status: "thinking" | "searching";
+}
+
+const { messages } = useStreamChat<
+  ContentPart | StatusPart,
+  SSEEvent | StatusEvent
+>({
+  api: "/api/chat",
+  onEvent: (event, helpers) => {
+    // event is SSEEvent | StatusEvent — fully typed
+  },
+});
+// messages is Message<ContentPart | StatusPart>[]
+```
+
+## Lifecycle
+
+1. `sendMessage("Hello")` is called
+2. A user message and an empty assistant message are appended to state
+3. `onMessage` fires for the user message
+4. `isLoading` becomes `true`
+5. `fetch(api, { method: "POST", body: { message: "Hello", ...body } })` is called
+6. Response body is piped through `parseSSEStream`
+7. Each event is passed to `onEvent` (or the default handler)
+8. State updates trigger re-renders with streaming content
+9. When the stream ends: `onMessage` fires for the assistant message, `onFinish` fires
+10. `isLoading` becomes `false`
+
+## Cleanup
+
+The hook automatically aborts any in-flight stream when the component unmounts.

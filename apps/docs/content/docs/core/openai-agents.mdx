@@ -1,0 +1,125 @@
+---
+title: OpenAI Agents History
+description: Load conversation history from OpenAI Agents SDK.
+---
+
+If your backend uses the [OpenAI Agents SDK](https://github.com/openai/openai-agents-python), you can convert agent run history into DeltaKit messages using `fromOpenAiAgents`.
+
+## The Problem
+
+The OpenAI Agents SDK stores conversation history as `TResponseInputItem` — a list of 28+ item types including messages, tool calls, tool outputs, reasoning, and internal control items. This format is not directly usable in a chat UI.
+
+`fromOpenAiAgents` converts these items into a clean `Message<ContentPart>[]` array.
+
+## Backend Setup
+
+Expose an endpoint that returns the agent's history:
+
+```python
+from agents import Agent, Runner
+
+agent = Agent(name="MyAgent", instructions="You are helpful.")
+
+@app.get("/api/chat/history/{session_id}")
+async def get_history(session_id: str):
+    # Retrieve stored history for this session
+    result = await Runner.run(agent, input=[], session_id=session_id)
+    return result.to_input_list()
+```
+
+## Client Usage
+
+```tsx
+import { useStreamChat, fromOpenAiAgents } from "@deltakit/react";
+import type { Message } from "@deltakit/react";
+import { useState, useEffect } from "react";
+
+function Chat({ sessionId }: { sessionId: string }) {
+  const [initialMessages, setInitialMessages] = useState<Message[]>([]);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/chat/history/${sessionId}`)
+      .then((r) => r.json())
+      .then((items) => {
+        const messages = fromOpenAiAgents(items);
+        setInitialMessages(messages);
+        setReady(true);
+      });
+  }, [sessionId]);
+
+  const { messages, sendMessage, isLoading } = useStreamChat({
+    api: "/api/chat",
+    initialMessages,
+    body: { sessionId },
+  });
+
+  if (!ready) return <div>Loading history...</div>;
+
+  return (
+    <div>
+      {messages.map((msg) => (
+        <div key={msg.id}>
+          <strong>{msg.role}:</strong>{" "}
+          {msg.parts
+            .filter((p) => p.type === "text")
+            .map((p) => p.text)
+            .join("")}
+        </div>
+      ))}
+
+      <button
+        onClick={() => sendMessage("Continue our conversation")}
+        disabled={isLoading}
+      >
+        Send
+      </button>
+    </div>
+  );
+}
+```
+
+## What Gets Converted
+
+Given an agent history like:
+
+```json
+[
+  { "role": "user", "content": "What's the weather?" },
+  { "type": "function_call", "name": "get_weather", "arguments": "{\"city\":\"London\"}", "call_id": "call_1" },
+  { "type": "function_call_output", "call_id": "call_1", "output": "Sunny, 18°C" },
+  { "type": "message", "role": "assistant", "content": [{ "type": "output_text", "text": "It's sunny and 18°C in London!" }] }
+]
+```
+
+`fromOpenAiAgents` produces:
+
+```ts
+[
+  {
+    id: "openai_0",
+    role: "user",
+    parts: [{ type: "text", text: "What's the weather?" }],
+  },
+  {
+    id: "openai_1",
+    role: "assistant",
+    parts: [
+      {
+        type: "tool_call",
+        tool_name: "get_weather",
+        argument: '{"city":"London"}',
+        callId: "call_1",
+        result: "Sunny, 18°C",
+      },
+      { type: "text", text: "It's sunny and 18°C in London!" },
+    ],
+  },
+]
+```
+
+Notice how:
+- The user message becomes a simple `Message` with a `TextPart`.
+- The function call, its output, and the assistant text are grouped into a single assistant `Message`.
+- The tool result is attached to its `ToolCallPart` via `callId`.
+- System/developer messages and internal items are filtered out.

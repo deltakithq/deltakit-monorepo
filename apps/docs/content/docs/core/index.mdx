@@ -1,0 +1,80 @@
+---
+title: Overview
+description: DeltaKit - streaming chat primitives for React.
+icon: House
+---
+
+DeltaKit is a lightweight library for building streaming chat interfaces in React. It handles the plumbing of Server-Sent Events (SSE) so you can focus on your UI.
+
+## Packages
+
+DeltaKit is split into two packages:
+
+- **`@deltakit/core`** — Framework-agnostic types and utilities. Zero runtime dependencies. Provides the SSE parser, message types, and an OpenAI Agents SDK converter.
+- **`@deltakit/react`** — A single `useStreamChat` hook that manages the full streaming lifecycle: state, network, cancellation, and event handling. Re-exports everything from core.
+
+Most users only need `@deltakit/react` — it re-exports all core types and functions.
+
+## Quick Example
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+
+function Chat() {
+  const { messages, isLoading, sendMessage, stop } = useStreamChat({
+    api: "/api/chat",
+  });
+
+  return (
+    <div>
+      {messages.map((msg) => (
+        <div key={msg.id}>
+          <strong>{msg.role}:</strong>{" "}
+          {msg.parts
+            .filter((p) => p.type === "text")
+            .map((p) => p.text)
+            .join("")}
+        </div>
+      ))}
+
+      {isLoading && <button onClick={stop}>Stop</button>}
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const input = e.currentTarget.elements.namedItem("msg") as HTMLInputElement;
+          sendMessage(input.value);
+          input.value = "";
+        }}
+      >
+        <input name="msg" placeholder="Type a message..." />
+        <button type="submit" disabled={isLoading}>Send</button>
+      </form>
+    </div>
+  );
+}
+```
+
+## How It Works
+
+1. You call `sendMessage("Hello")`.
+2. The hook POSTs `{ message: "Hello" }` to your `api` endpoint.
+3. Your server responds with an SSE stream of events.
+4. The hook parses events and updates React state in real-time.
+5. Your component re-renders with each new chunk of text.
+
+The server sends events in this format:
+
+```
+data: {"type":"text_delta","delta":"Hello"}
+
+data: {"type":"text_delta","delta":" world"}
+
+data: [DONE]
+```
+
+## Next Steps
+
+- [Getting Started](/docs/getting-started) — Installation and setup
+- [useStreamChat](/docs/react/use-stream-chat) — Full hook API reference
+- [Types](/docs/core/types) — Message and content part types

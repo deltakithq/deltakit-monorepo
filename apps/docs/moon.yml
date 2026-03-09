@@ -1,0 +1,37 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+project:
+  name: 'docs'
+  type: 'application'
+
+stack: frontend
+
+language: typescript
+
+tasks:
+  dev:
+    command: 'pnpm'
+    args: ['exec', 'vite', 'dev', '--port', '3001']
+    type: 'run'
+
+  build:
+    command: 'pnpm'
+    args: ['exec', 'vite', 'build']
+    type: 'build'
+    deps:
+      - '^:build'
+    inputs:
+      - 'src/**/*'
+      - 'content/**/*'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+      - 'source.config.ts'
+    outputs:
+      - 'dist'
+
+  preview:
+    command: 'pnpm'
+    args: ['exec', 'vite', 'preview']
+    type: 'run'
+    deps:
+      - '~:build'

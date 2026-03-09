@@ -1,0 +1,123 @@
+---
+title: EventHelpers
+description: Helper methods for mutating message state inside onEvent callbacks.
+---
+
+`EventHelpers` is the interface passed as the second argument to `onEvent`. It provides methods to update the assistant message being streamed.
+
+```ts
+import type { EventHelpers } from "@deltakit/react";
+```
+
+## Interface
+
+```ts
+interface EventHelpers<TPart extends { type: string } = ContentPart> {
+  appendText: (delta: string) => void;
+  appendPart: (part: TPart) => void;
+  setMessages: Dispatch<SetStateAction<Message<TPart>[]>>;
+}
+```
+
+## Methods
+
+### `appendText(delta)`
+
+Appends a text string to the last `TextPart` of the current assistant message. If the last part is not a text part, creates a new one.
+
+```ts
+onEvent: (event, { appendText }) => {
+  if (event.type === "text_delta") {
+    appendText(event.delta);
+  }
+}
+```
+
+This is what the default handler does internally. If you provide a custom `onEvent`, you'll typically call `appendText` yourself for `text_delta` events.
+
+### `appendPart(part)`
+
+Pushes a new content part to the current assistant message.
+
+```ts
+onEvent: (event, { appendPart }) => {
+  if (event.type === "tool_call") {
+    appendPart({
+      type: "tool_call",
+      tool_name: event.tool_name,
+      argument: event.argument,
+      callId: event.call_id,
+    });
+  }
+}
+```
+
+### `setMessages(updater)`
+
+Direct access to the React `setState` function for messages. Use for advanced mutations that `appendText` and `appendPart` don't cover.
+
+```ts
+onEvent: (event, { setMessages }) => {
+  if (event.type === "tool_result") {
+    setMessages((msgs) => {
+      const last = msgs[msgs.length - 1];
+      if (last?.role !== "assistant") return msgs;
+
+      const updatedParts = last.parts.map((part) => {
+        if (part.type === "tool_call" && part.callId === event.call_id) {
+          return { ...part, result: event.output };
+        }
+        return part;
+      });
+
+      return [...msgs.slice(0, -1), { ...last, parts: updatedParts }];
+    });
+  }
+}
+```
+
+## Common Pattern
+
+A typical `onEvent` handler uses all three helpers:
+
+```ts
+onEvent: (event, { appendText, appendPart, setMessages }) => {
+  switch (event.type) {
+    case "text_delta":
+      appendText(event.delta);
+      break;
+
+    case "tool_call":
+      appendPart({
+        type: "tool_call",
+        tool_name: event.tool_name,
+        argument: event.argument,
+        callId: event.call_id,
+      });
+      break;
+
+    case "tool_result":
+      // Update existing tool_call part with its result
+      setMessages((msgs) => {
+        const last = msgs[msgs.length - 1];
+        if (last?.role !== "assistant") return msgs;
+
+        const updatedParts = last.parts.map((part) => {
+          if (part.type === "tool_call" && part.callId === event.call_id) {
+            return { ...part, result: event.output };
+          }
+          return part;
+        });
+
+        return [...msgs.slice(0, -1), { ...last, parts: updatedParts }];
+      });
+      break;
+  }
+}
+```
+
+## Notes
+
+- `appendText` and `appendPart` only operate on the **last** message in the array, and only if its `role` is `"assistant"`.
+- All three methods trigger React state updates and re-renders.
+- The helpers are stable references (created with `useCallback`) — they won't cause unnecessary re-renders when passed as dependencies.

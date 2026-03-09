@@ -1,0 +1,18 @@
+{
+	"title": "@deltakit/core",
+	"description": "Core streaming utilities",
+	"root": true,
+	"pages": [
+		"index",
+		"getting-started",
+		"---Guides---",
+		"custom-events",
+		"tool-calls",
+		"openai-agents",
+		"---API References---",
+		"types",
+		"sse-events",
+		"parse-sse-stream",
+		"from-openai-agents"
+	]
+}

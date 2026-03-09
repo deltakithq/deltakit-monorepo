@@ -1,0 +1,13 @@
+{
+	"title": "@deltakit/react",
+	"description": "React hooks & helpers",
+	"root": true,
+	"pages": [
+		"index",
+		"quick-start",
+		"---Guides---",
+		"---API References---",
+		"use-stream-chat",
+		"event-helpers"
+	]
+}

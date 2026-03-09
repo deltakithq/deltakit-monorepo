@@ -1,0 +1,160 @@
+---
+title: Custom Events
+description: Handle custom SSE events beyond text_delta.
+---
+
+By default, `useStreamChat` only handles `text_delta` events. For tool calls, reasoning, progress indicators, or any custom data, provide an `onEvent` callback.
+
+## Replacing the Default Handler
+
+When you provide `onEvent`, it **replaces** the default handler entirely. You must handle `text_delta` yourself:
+
+```ts
+useStreamChat({
+  api: "/api/chat",
+  onEvent: (event, { appendText }) => {
+    // Without this, text won't appear!
+    if (event.type === "text_delta") {
+      appendText(event.delta);
+    }
+  },
+});
+```
+
+## Handling Tool Calls
+
+```ts
+useStreamChat({
+  api: "/api/chat",
+  onEvent: (event, { appendText, appendPart, setMessages }) => {
+    switch (event.type) {
+      case "text_delta":
+        appendText(event.delta);
+        break;
+
+      case "tool_call":
+        appendPart({
+          type: "tool_call",
+          tool_name: event.tool_name,
+          argument: event.argument,
+          callId: event.call_id,
+        });
+        break;
+
+      case "tool_result":
+        setMessages((msgs) => {
+          const last = msgs[msgs.length - 1];
+          if (last?.role !== "assistant") return msgs;
+
+          const updatedParts = last.parts.map((part) => {
+            if (part.type === "tool_call" && part.callId === event.call_id) {
+              return { ...part, result: event.output };
+            }
+            return part;
+          });
+
+          return [...msgs.slice(0, -1), { ...last, parts: updatedParts }];
+        });
+        break;
+    }
+  },
+});
+```
+
+## Streaming Reasoning
+
+Display chain-of-thought as it arrives:
+
+```ts
+useStreamChat({
+  api: "/api/chat",
+  onEvent: (event, { appendText, setMessages }) => {
+    switch (event.type) {
+      case "text_delta":
+        appendText(event.delta);
+        break;
+
+      case "reasoning_delta":
+        setMessages((msgs) => {
+          const last = msgs[msgs.length - 1];
+          if (last?.role !== "assistant") return msgs;
+
+          const lastPart = last.parts[last.parts.length - 1];
+
+          if (lastPart?.type === "reasoning") {
+            const updatedParts = [
+              ...last.parts.slice(0, -1),
+              { ...lastPart, text: lastPart.text + event.delta },
+            ];
+            return [...msgs.slice(0, -1), { ...last, parts: updatedParts }];
+          }
+
+          return [
+            ...msgs.slice(0, -1),
+            {
+              ...last,
+              parts: [...last.parts, { type: "reasoning", text: event.delta }],
+            },
+          ];
+        });
+        break;
+    }
+  },
+});
+```
+
+## Custom Event Types with Full Type Safety
+
+Define your own event types for compile-time checking:
+
+```ts
+interface ReasoningDeltaEvent {
+  type: "reasoning_delta";
+  delta: string;
+}
+
+type MyEvent = SSEEvent | ReasoningDeltaEvent;
+
+useStreamChat<ContentPart, MyEvent>({
+  api: "/api/chat",
+  onEvent: (event, { appendText }) => {
+    // TypeScript knows all possible event.type values
+    switch (event.type) {
+      case "text_delta":
+        appendText(event.delta);
+        break;
+      case "reasoning_delta":
+        // event.delta is typed as string
+        break;
+      case "tool_call":
+        // event.tool_name is typed
+        break;
+      case "tool_result":
+        // event.call_id is typed
+        break;
+    }
+  },
+});
+```
+
+## Server-Side Event Format
+
+Your server sends any JSON as a `data:` line. DeltaKit's `parseSSEStream` yields it as-is:
+
+```python
+# Python/FastAPI
+async def generate():
+    # Text
+    yield f'data: {json.dumps({"type": "text_delta", "delta": "Hello"})}\n\n'
+
+    # Reasoning
+    yield f'data: {json.dumps({"type": "reasoning_delta", "delta": "Let me think..."})}\n\n'
+
+    # Custom progress
+    yield f'data: {json.dumps({"type": "progress", "step": "searching", "percent": 50})}\n\n'
+
+    # Done
+    yield 'data: [DONE]\n\n'
+```
+
+There is no restriction on what event types you can send — any valid JSON with a `type` field works.

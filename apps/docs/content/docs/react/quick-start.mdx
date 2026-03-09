@@ -1,0 +1,87 @@
+---
+title: Quick Start
+description: Install @deltakit/react and build a streaming chat in minutes.
+icon: Rocket
+---
+
+## Installation
+
+```bash tab="pnpm"
+pnpm add @deltakit/react
+```
+
+```bash tab="npm"
+npm install @deltakit/react
+```
+
+```bash tab="yarn"
+yarn add @deltakit/react
+```
+
+This installs both `@deltakit/react` and `@deltakit/core` (its dependency).
+
+## Requirements
+
+- React 18 or higher
+- A backend endpoint that streams Server-Sent Events (SSE)
+
+## Basic Chat Component
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+
+function Chat() {
+  const { messages, isLoading, sendMessage } = useStreamChat({
+    api: "/api/chat",
+  });
+
+  return (
+    <div>
+      {messages.map((msg) => (
+        <div key={msg.id}>
+          <strong>{msg.role}:</strong>{" "}
+          {msg.parts
+            .filter((p) => p.type === "text")
+            .map((p) => p.text)
+            .join("")}
+        </div>
+      ))}
+
+      {isLoading && <span>Thinking...</span>}
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const input = e.currentTarget.elements.namedItem("message") as HTMLInputElement;
+          sendMessage(input.value);
+          input.value = "";
+        }}
+      >
+        <input name="message" placeholder="Type a message..." />
+        <button type="submit" disabled={isLoading}>Send</button>
+      </form>
+    </div>
+  );
+}
+```
+
+The `useStreamChat` hook handles the entire streaming lifecycle — it sends the message to your API, parses the SSE stream, and updates `messages` in real time.
+
+## What You Get Back
+
+```tsx
+const {
+  messages,    // Message[] — live-updating conversation
+  isLoading,   // boolean — true while streaming
+  error,       // Error | null — latest error
+  sendMessage, // (text: string) => void — send and stream
+  stop,        // () => void — abort current stream
+  setMessages, // React state setter for direct control
+} = useStreamChat({ api: "/api/chat" });
+```
+
+## Next Steps
+
+- [useStreamChat](/docs/react/use-stream-chat) — Full hook API reference
+- [EventHelpers](/docs/react/event-helpers) — Helper methods for custom event handling
+- [Custom Events](/docs/core/custom-events) — Handle tool calls and beyond

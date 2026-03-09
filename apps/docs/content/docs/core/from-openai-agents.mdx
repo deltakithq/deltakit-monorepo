@@ -1,0 +1,128 @@
+---
+title: fromOpenAiAgents
+description: Convert OpenAI Agents SDK history items to DeltaKit messages.
+---
+
+`fromOpenAiAgents` converts raw OpenAI Agents SDK response items into DeltaKit's `Message<ContentPart>[]` format. Use it to load conversation history from agent runs into `useStreamChat`.
+
+```ts
+import { fromOpenAiAgents } from "@deltakit/react";
+```
+
+## Signature
+
+```ts
+function fromOpenAiAgents(
+  items: Record<string, unknown>[]
+): Message<ContentPart>[]
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `items` | `Record<string, unknown>[]` | Raw items from OpenAI Agents SDK (JSON deserialized) |
+
+Returns an array of `Message<ContentPart>` in chronological order.
+
+## Usage
+
+```ts
+// Load history from your API
+const history = await fetch("/api/chat/history").then((r) => r.json());
+
+// Convert to DeltaKit format
+const messages = fromOpenAiAgents(history);
+
+// Use as initial messages
+const chat = useStreamChat({
+  api: "/api/chat",
+  initialMessages: messages,
+});
+```
+
+## Supported Item Types
+
+The converter handles all OpenAI Agents SDK item types:
+
+### Messages
+
+| Type | Mapping |
+|------|---------|
+| `message` (role: user) | `Message` with `TextPart` |
+| `message` (role: assistant) | `Message` with extracted `ContentPart[]` |
+| Items without `type` but with `role` | Handled like `message` items |
+| `message` (role: system/developer) | Filtered out |
+
+### Tool Calls
+
+All tool calls are converted to `ToolCallPart`:
+
+| Type | `tool_name` |
+|------|-------------|
+| `function_call` | Function name |
+| `web_search_call` | `"web_search"` |
+| `file_search_call` | `"file_search"` |
+| `computer_call` | `"computer"` |
+| `shell_call` / `local_shell_call` | `"shell"` |
+| `code_interpreter_call` | `"code_interpreter"` |
+| `apply_patch_call` | `"apply_patch"` |
+| `mcp_call` | MCP tool name |
+| `custom_tool_call` | Custom tool name |
+| `image_generation_call` | Converted to `TextPart` with `"[Image Generated]"` |
+
+### Tool Outputs
+
+Tool outputs are matched to their corresponding `ToolCallPart` by `callId`:
+
+| Type | Behavior |
+|------|----------|
+| `function_call_output` | Attaches `result` to matching `ToolCallPart` |
+| `computer_call_output` | Attaches screenshot placeholder |
+| `shell_call_output` / `local_shell_call_output` | Attaches stdout/stderr output |
+| `apply_patch_call_output` | Attaches status + output |
+| `custom_tool_call_output` | Attaches output string |
+
+### Other Items
+
+| Type | Behavior |
+|------|----------|
+| `reasoning` | Converted to `ReasoningPart` with summary text |
+| `mcp_list_tools`, `mcp_approval_request`, `mcp_approval_response` | Silently filtered out |
+| `compaction`, `item_reference`, `tool_search_call`, `tool_search_output` | Silently filtered out |
+
+## Example with FastAPI Backend
+
+```python
+# Server: return agent history
+@app.get("/api/chat/history/{session_id}")
+async def get_history(session_id: str):
+    result = await agent.run(session_id=session_id)
+    return result.to_input_list()
+```
+
+```tsx
+// Client: load and display
+function ChatWithHistory({ sessionId }: { sessionId: string }) {
+  const [initialMessages, setInitialMessages] = useState<Message[]>([]);
+
+  useEffect(() => {
+    fetch(`/api/chat/history/${sessionId}`)
+      .then((r) => r.json())
+      .then((items) => setInitialMessages(fromOpenAiAgents(items)));
+  }, [sessionId]);
+
+  const chat = useStreamChat({
+    api: "/api/chat",
+    initialMessages,
+    body: { sessionId },
+  });
+
+  // render chat UI...
+}
+```
+
+## Notes
+
+- Messages are returned in chronological order.
+- Consecutive assistant items (tool calls, reasoning, text) are grouped into a single `Message`.
+- A new user message always starts a new group.
+- Unknown item types are silently skipped.

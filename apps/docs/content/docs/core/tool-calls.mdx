@@ -1,0 +1,187 @@
+---
+title: Tool Calls
+description: End-to-end tool calling with DeltaKit.
+---
+
+This guide shows how to implement tool calling (function calling) with DeltaKit, covering both client and server.
+
+## Overview
+
+1. Your server runs a model that decides to call a tool.
+2. It sends a `tool_call` event over SSE.
+3. The server executes the tool and sends a `tool_result` event.
+4. Optionally, it continues with more `text_delta` events.
+5. Your client handles all events and renders the results.
+
+## Client Setup
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+import type { ContentPart } from "@deltakit/react";
+
+function ChatWithTools() {
+  const { messages, isLoading, sendMessage } = useStreamChat({
+    api: "/api/chat",
+    onEvent: (event, { appendText, appendPart, setMessages }) => {
+      switch (event.type) {
+        case "text_delta":
+          appendText(event.delta);
+          break;
+
+        case "tool_call":
+          appendPart({
+            type: "tool_call",
+            tool_name: event.tool_name,
+            argument: event.argument,
+            callId: event.call_id,
+          });
+          break;
+
+        case "tool_result":
+          setMessages((msgs) => {
+            const last = msgs[msgs.length - 1];
+            if (last?.role !== "assistant") return msgs;
+
+            const updatedParts = last.parts.map((part) => {
+              if (
+                part.type === "tool_call" &&
+                part.callId === event.call_id
+              ) {
+                return { ...part, result: event.output };
+              }
+              return part;
+            });
+
+            return [...msgs.slice(0, -1), { ...last, parts: updatedParts }];
+          });
+          break;
+      }
+    },
+  });
+
+  return (
+    <div>
+      {messages.map((msg) => (
+        <div key={msg.id}>
+          <strong>{msg.role}:</strong>
+          {msg.parts.map((part, i) => (
+            <Part key={i} part={part} />
+          ))}
+        </div>
+      ))}
+
+      <button
+        onClick={() => sendMessage("What's the weather in London?")}
+        disabled={isLoading}
+      >
+        Ask
+      </button>
+    </div>
+  );
+}
+
+function Part({ part }: { part: ContentPart }) {
+  switch (part.type) {
+    case "text":
+      return <p>{part.text}</p>;
+    case "tool_call":
+      return (
+        <div style={{ background: "#f0f0f0", padding: 8, margin: "4px 0" }}>
+          <strong>{part.tool_name}</strong>
+          <pre>{part.argument}</pre>
+          {part.result ? (
+            <div>Result: {part.result}</div>
+          ) : (
+            <div>Running...</div>
+          )}
+        </div>
+      );
+    case "reasoning":
+      return <em>{part.text}</em>;
+  }
+}
+```
+
+## Server Setup (FastAPI)
+
+```python
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+import json
+
+app = FastAPI()
+
+# Simulated tool
+def get_weather(city: str) -> str:
+    return f"Sunny, 18°C in {city}"
+
+@app.post("/api/chat")
+async def chat(request: dict):
+    message = request["message"]
+
+    async def generate():
+        if "weather" in message.lower():
+            # 1. Send tool call
+            yield f'data: {json.dumps({
+                "type": "tool_call",
+                "tool_name": "get_weather",
+                "argument": json.dumps({"city": "London"}),
+                "call_id": "call_1"
+            })}\n\n'
+
+            # 2. Execute tool
+            result = get_weather("London")
+
+            # 3. Send tool result
+            yield f'data: {json.dumps({
+                "type": "tool_result",
+                "call_id": "call_1",
+                "output": result
+            })}\n\n'
+
+            # 4. Continue with text
+            for word in ["The weather", " in London", f" is {result}."]:
+                yield f'data: {json.dumps({
+                    "type": "text_delta",
+                    "delta": word
+                })}\n\n'
+        else:
+            for word in ["I can", " help with", " weather!"]:
+                yield f'data: {json.dumps({
+                    "type": "text_delta",
+                    "delta": word
+                })}\n\n'
+
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+```
+
+## Multiple Tool Calls
+
+A single response can include multiple tool calls. Each gets its own `tool_call` and `tool_result` event pair:
+
+```
+data: {"type":"tool_call","tool_name":"search","argument":"...","call_id":"call_1"}
+data: {"type":"tool_result","call_id":"call_1","output":"..."}
+data: {"type":"tool_call","tool_name":"calculate","argument":"...","call_id":"call_2"}
+data: {"type":"tool_result","call_id":"call_2","output":"..."}
+data: {"type":"text_delta","delta":"Based on the results..."}
+data: [DONE]
+```
+
+The `call_id` field is what connects each result to its call. Always include it.
+
+## ToolCallPart Structure
+
+For reference, the tool call part stored in messages:
+
+```ts
+interface ToolCallPart {
+  type: "tool_call";
+  tool_name: string;   // Name of the tool
+  argument: string;    // JSON string of arguments
+  callId?: string;     // Matches call_id from events
+  result?: string;     // Filled by tool_result event
+}
+```
