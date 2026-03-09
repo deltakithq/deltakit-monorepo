@@ -1,0 +1,109 @@
+---
+title: Authentication
+description: Pass auth tokens and handle unauthorized errors.
+---
+
+DeltaKit doesn't have a built-in auth system — authentication is handled through the `headers` option on `useStreamChat`.
+
+## Bearer Token
+
+The most common pattern is sending a JWT or API key via the `Authorization` header:
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+
+function Chat({ token }: { token: string }) {
+  const { messages, sendMessage } = useStreamChat({
+    api: "/api/chat",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return (/* render messages */);
+}
+```
+
+## Token from Auth Context
+
+If you use a React auth provider (Auth0, Clerk, Supabase, custom), pull the token from context:
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+import { useAuth } from "./auth-context";
+
+function Chat() {
+  const { token } = useAuth();
+
+  const { messages, sendMessage } = useStreamChat({
+    api: "/api/chat",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return (/* render messages */);
+}
+```
+
+The hook reads `headers` on each `sendMessage` call, so token refreshes are picked up automatically.
+
+## Handling 401 Errors
+
+Use `onError` to detect unauthorized responses and redirect or refresh:
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+import { useAuth } from "./auth-context";
+
+function Chat() {
+  const { token, refreshToken, logout } = useAuth();
+
+  const { messages, sendMessage, error } = useStreamChat({
+    api: "/api/chat",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    onError: (error) => {
+      if (error.message.includes("401")) {
+        // Try refreshing the token, or redirect to login
+        refreshToken().catch(() => logout());
+      }
+    },
+  });
+
+  return (/* render messages */);
+}
+```
+
+## API Key Authentication
+
+For simpler setups with API keys:
+
+```tsx
+useStreamChat({
+  api: "/api/chat",
+  headers: {
+    "X-API-Key": import.meta.env.VITE_API_KEY,
+  },
+});
+```
+
+## Server-Side Verification
+
+Your backend should validate the token on every request:
+
+```python
+# FastAPI example
+from fastapi import Request, HTTPException
+
+@app.post("/api/chat")
+async def chat(request: Request):
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    token = auth.split(" ")[1]
+    user = verify_token(token)  # Your verification logic
+    # ... proceed with chat
+```

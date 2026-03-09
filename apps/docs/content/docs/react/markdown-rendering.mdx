@@ -1,0 +1,120 @@
+---
+title: Markdown Rendering
+description: Render assistant responses as formatted markdown.
+---
+
+DeltaKit streams plain text in `TextPart.text`. To render markdown formatting (headings, lists, code blocks, links), use a markdown renderer like `react-markdown`.
+
+## Setup
+
+Install `react-markdown`:
+
+```bash tab="pnpm"
+pnpm add react-markdown
+```
+
+```bash tab="npm"
+npm install react-markdown
+```
+
+```bash tab="yarn"
+yarn add react-markdown
+```
+
+## Basic Usage
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+import Markdown from "react-markdown";
+
+function Chat() {
+  const { messages, sendMessage } = useStreamChat({
+    api: "/api/chat",
+  });
+
+  return (
+    <div>
+      {messages.map((msg) => (
+        <div key={msg.id}>
+          <strong>{msg.role}:</strong>
+          {msg.parts
+            .filter((p) => p.type === "text")
+            .map((p, i) => (
+              <Markdown key={i}>{p.text}</Markdown>
+            ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Styling with Tailwind Typography
+
+For well-styled prose output, use the `@tailwindcss/typography` plugin:
+
+```bash tab="pnpm"
+pnpm add @tailwindcss/typography
+```
+
+```bash tab="npm"
+npm install @tailwindcss/typography
+```
+
+```bash tab="yarn"
+yarn add @tailwindcss/typography
+```
+
+Import it in your CSS:
+
+```css
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+```
+
+Then wrap markdown output in a `prose` container:
+
+```tsx
+{msg.parts
+  .filter((p) => p.type === "text")
+  .map((p, i) => (
+    <div key={i} className="prose prose-sm max-w-none dark:prose-invert">
+      <Markdown>{p.text}</Markdown>
+    </div>
+  ))}
+```
+
+## Integrating with the Part Component
+
+If you're using a `<Part>` switch component (see [Tool Call Rendering](/docs/react/tool-call-rendering)), add markdown rendering to the text case:
+
+```tsx
+import type { ContentPart } from "@deltakit/react";
+import Markdown from "react-markdown";
+
+function Part({ part }: { part: ContentPart }) {
+  switch (part.type) {
+    case "text":
+      return (
+        <div className="prose prose-sm max-w-none dark:prose-invert">
+          <Markdown>{part.text}</Markdown>
+        </div>
+      );
+    case "tool_call":
+      return <ToolCall part={part} />;
+    case "reasoning":
+      return <em>{part.text}</em>;
+  }
+}
+```
+
+## Streaming Behavior
+
+Markdown renders correctly during streaming because `react-markdown` handles partial markdown gracefully. As `text_delta` events arrive and `TextPart.text` grows, the component re-renders with progressively more complete markdown.
+
+For example, as the stream progresses:
+- `"# He"` → renders an incomplete heading
+- `"# Hello\n\nThis is "` → heading resolves, paragraph begins
+- `"# Hello\n\nThis is **bold** text"` → bold formatting applied
+
+No special handling is needed — standard React re-rendering takes care of it.

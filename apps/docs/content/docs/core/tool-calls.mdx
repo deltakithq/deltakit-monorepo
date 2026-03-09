@@ -1,108 +1,86 @@
 ---
 title: Tool Calls
-description: End-to-end tool calling with DeltaKit.
+description: The SSE protocol for tool calling.
 ---
 
-This guide shows how to implement tool calling (function calling) with DeltaKit, covering both client and server.
+Tool calling (function calling) follows a specific event sequence in the SSE stream. The server performs the tool execution and streams the events — the client receives and renders them.
 
-## Overview
+## Protocol Flow
 
-1. Your server runs a model that decides to call a tool.
+1. The server runs a model that decides to call a tool.
 2. It sends a `tool_call` event over SSE.
 3. The server executes the tool and sends a `tool_result` event.
-4. Optionally, it continues with more `text_delta` events.
-5. Your client handles all events and renders the results.
+4. Optionally, it continues with `text_delta` events.
+5. The stream ends with `data: [DONE]`.
 
-## Client Setup
+## Event Sequence
 
-```tsx
-import { useStreamChat } from "@deltakit/react";
-import type { ContentPart } from "@deltakit/react";
+A typical tool call stream:
 
-function ChatWithTools() {
-  const { messages, isLoading, sendMessage } = useStreamChat({
-    api: "/api/chat",
-    onEvent: (event, { appendText, appendPart, setMessages }) => {
-      switch (event.type) {
-        case "text_delta":
-          appendText(event.delta);
-          break;
+```
+data: {"type":"tool_call","tool_name":"get_weather","argument":"{\"city\":\"London\"}","call_id":"call_1"}
+data: {"type":"tool_result","call_id":"call_1","output":"Sunny, 18°C in London"}
+data: {"type":"text_delta","delta":"The weather in London is sunny, 18°C."}
+data: [DONE]
+```
 
-        case "tool_call":
-          appendPart({
-            type: "tool_call",
-            tool_name: event.tool_name,
-            argument: event.argument,
-            callId: event.call_id,
-          });
-          break;
+## Event Types
 
-        case "tool_result":
-          setMessages((msgs) => {
-            const last = msgs[msgs.length - 1];
-            if (last?.role !== "assistant") return msgs;
+### `tool_call`
 
-            const updatedParts = last.parts.map((part) => {
-              if (
-                part.type === "tool_call" &&
-                part.callId === event.call_id
-              ) {
-                return { ...part, result: event.output };
-              }
-              return part;
-            });
+Signals that the model wants to invoke a tool.
 
-            return [...msgs.slice(0, -1), { ...last, parts: updatedParts }];
-          });
-          break;
-      }
-    },
-  });
-
-  return (
-    <div>
-      {messages.map((msg) => (
-        <div key={msg.id}>
-          <strong>{msg.role}:</strong>
-          {msg.parts.map((part, i) => (
-            <Part key={i} part={part} />
-          ))}
-        </div>
-      ))}
-
-      <button
-        onClick={() => sendMessage("What's the weather in London?")}
-        disabled={isLoading}
-      >
-        Ask
-      </button>
-    </div>
-  );
-}
-
-function Part({ part }: { part: ContentPart }) {
-  switch (part.type) {
-    case "text":
-      return <p>{part.text}</p>;
-    case "tool_call":
-      return (
-        <div style={{ background: "#f0f0f0", padding: 8, margin: "4px 0" }}>
-          <strong>{part.tool_name}</strong>
-          <pre>{part.argument}</pre>
-          {part.result ? (
-            <div>Result: {part.result}</div>
-          ) : (
-            <div>Running...</div>
-          )}
-        </div>
-      );
-    case "reasoning":
-      return <em>{part.text}</em>;
-  }
+```ts
+interface ToolCallEvent {
+  type: "tool_call";
+  tool_name: string;    // Name of the tool
+  argument: string;     // JSON string of arguments
+  call_id?: string;     // Unique ID linking to the result
 }
 ```
 
-## Server Setup (FastAPI)
+### `tool_result`
+
+Contains the output of the tool execution.
+
+```ts
+interface ToolResultEvent {
+  type: "tool_result";
+  call_id: string;      // Matches the tool_call's call_id
+  output: string;       // Result string
+}
+```
+
+## Multiple Tool Calls
+
+A single response can include multiple tool calls. Each gets its own `tool_call` and `tool_result` pair, linked by `call_id`:
+
+```
+data: {"type":"tool_call","tool_name":"search","argument":"...","call_id":"call_1"}
+data: {"type":"tool_result","call_id":"call_1","output":"..."}
+data: {"type":"tool_call","tool_name":"calculate","argument":"...","call_id":"call_2"}
+data: {"type":"tool_result","call_id":"call_2","output":"..."}
+data: {"type":"text_delta","delta":"Based on the results..."}
+data: [DONE]
+```
+
+The `call_id` field connects each result to its call. Always include it when using multiple tools.
+
+## ToolCallPart Structure
+
+On the client side, tool calls are stored as `ToolCallPart` in the message's `parts` array:
+
+```ts
+interface ToolCallPart {
+  type: "tool_call";
+  tool_name: string;   // Name of the tool
+  argument: string;    // JSON string of arguments
+  callId?: string;     // Matches call_id from events
+  result?: string;     // Filled by tool_result event
+}
+```
+
+## Server Example (FastAPI)
 
 ```python
 from fastapi import FastAPI
@@ -111,7 +89,6 @@ import json
 
 app = FastAPI()
 
-# Simulated tool
 def get_weather(city: str) -> str:
     return f"Sunny, 18°C in {city}"
 
@@ -157,31 +134,6 @@ async def chat(request: dict):
     return StreamingResponse(generate(), media_type="text/event-stream")
 ```
 
-## Multiple Tool Calls
+## Client-Side Rendering
 
-A single response can include multiple tool calls. Each gets its own `tool_call` and `tool_result` event pair:
-
-```
-data: {"type":"tool_call","tool_name":"search","argument":"...","call_id":"call_1"}
-data: {"type":"tool_result","call_id":"call_1","output":"..."}
-data: {"type":"tool_call","tool_name":"calculate","argument":"...","call_id":"call_2"}
-data: {"type":"tool_result","call_id":"call_2","output":"..."}
-data: {"type":"text_delta","delta":"Based on the results..."}
-data: [DONE]
-```
-
-The `call_id` field is what connects each result to its call. Always include it.
-
-## ToolCallPart Structure
-
-For reference, the tool call part stored in messages:
-
-```ts
-interface ToolCallPart {
-  type: "tool_call";
-  tool_name: string;   // Name of the tool
-  argument: string;    // JSON string of arguments
-  callId?: string;     // Matches call_id from events
-  result?: string;     // Filled by tool_result event
-}
-```
+For handling tool call events and rendering them in React, see [Tool Call Rendering](/docs/react/tool-call-rendering).

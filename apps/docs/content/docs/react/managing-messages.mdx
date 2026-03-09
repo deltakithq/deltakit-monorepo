@@ -1,0 +1,120 @@
+---
+title: Managing Messages
+description: Programmatically control the message list.
+---
+
+The `setMessages` return value from `useStreamChat` gives you direct access to the React state setter for messages. Use it for any operation beyond sending and streaming.
+
+## Clearing the Conversation
+
+```tsx
+const { setMessages } = useStreamChat({ api: "/api/chat" });
+
+function handleClear() {
+  setMessages([]);
+}
+```
+
+If your backend tracks conversation state, clear it too:
+
+```tsx
+async function handleClear() {
+  await fetch("/api/chat/clear", { method: "POST" });
+  setMessages([]);
+}
+```
+
+## Removing a Message
+
+Remove a specific message by ID:
+
+```tsx
+function handleDelete(messageId: string) {
+  setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+}
+```
+
+Remove the last message:
+
+```tsx
+function handleRemoveLast() {
+  setMessages((prev) => prev.slice(0, -1));
+}
+```
+
+## Editing a Message
+
+Replace a message's content:
+
+```tsx
+function handleEdit(messageId: string, newText: string) {
+  setMessages((prev) =>
+    prev.map((msg) =>
+      msg.id === messageId
+        ? { ...msg, parts: [{ type: "text", text: newText }] }
+        : msg,
+    ),
+  );
+}
+```
+
+## Resending a Message
+
+A common pattern is editing the last user message and re-triggering the response. Remove the last assistant message, then send again:
+
+```tsx
+const { messages, setMessages, sendMessage } = useStreamChat({
+  api: "/api/chat",
+});
+
+function handleResend() {
+  const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+  if (!lastUserMsg) return;
+
+  const lastUserText = lastUserMsg.parts
+    .filter((p) => p.type === "text")
+    .map((p) => p.text)
+    .join("");
+
+  // Remove the last assistant response (and optionally the user message)
+  setMessages((prev) => {
+    const idx = prev.findLastIndex((m) => m.role === "user");
+    return prev.slice(0, idx);
+  });
+
+  // Re-send (triggers a new stream)
+  sendMessage(lastUserText);
+}
+```
+
+## Inserting a System-Style Message
+
+You can programmatically insert messages without triggering a stream:
+
+```tsx
+function addNotice(text: string) {
+  setMessages((prev) => [
+    ...prev,
+    {
+      id: `notice_${Date.now()}`,
+      role: "assistant" as const,
+      parts: [{ type: "text" as const, text }],
+    },
+  ]);
+}
+
+// Usage
+addNotice("The model has been switched to GPT-4.");
+```
+
+## Functional Updates
+
+`setMessages` supports functional updates just like React's `useState`. Always use the functional form when your update depends on the current state:
+
+```tsx
+// Correct — uses the latest state
+setMessages((prev) => prev.filter((msg) => msg.id !== id));
+
+// Avoid — may use stale state
+setMessages(messages.filter((msg) => msg.id !== id));
+```

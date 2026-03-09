@@ -1,0 +1,171 @@
+---
+title: Custom Event Handling
+description: Handle custom SSE events beyond the default text_delta.
+---
+
+By default, `useStreamChat` only handles `text_delta` events — all other event types are silently ignored. To handle tool calls, reasoning, progress indicators, or any custom data, provide an `onEvent` callback.
+
+## Replacing the Default Handler
+
+When you provide `onEvent`, it **replaces** the default handler entirely. You must handle `text_delta` yourself:
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+
+useStreamChat({
+  api: "/api/chat",
+  onEvent: (event, { appendText }) => {
+    // Without this, text won't appear!
+    if (event.type === "text_delta") {
+      appendText(event.delta);
+    }
+  },
+});
+```
+
+## Event Helpers
+
+The second argument to `onEvent` is an [EventHelpers](/docs/react/event-helpers) object with three methods:
+
+- **`appendText(delta)`** — Append text to the last `TextPart` of the current assistant message.
+- **`appendPart(part)`** — Push a new content part onto the current assistant message.
+- **`setMessages(updater)`** — Direct React state setter for advanced mutations.
+
+## Handling Tool Calls
+
+```tsx
+useStreamChat({
+  api: "/api/chat",
+  onEvent: (event, { appendText, appendPart, setMessages }) => {
+    switch (event.type) {
+      case "text_delta":
+        appendText(event.delta);
+        break;
+
+      case "tool_call":
+        appendPart({
+          type: "tool_call",
+          tool_name: event.tool_name,
+          argument: event.argument,
+          callId: event.call_id,
+        });
+        break;
+
+      case "tool_result":
+        setMessages((msgs) => {
+          const last = msgs[msgs.length - 1];
+          if (last?.role !== "assistant") return msgs;
+
+          const updatedParts = last.parts.map((part) => {
+            if (part.type === "tool_call" && part.callId === event.call_id) {
+              return { ...part, result: event.output };
+            }
+            return part;
+          });
+
+          return [...msgs.slice(0, -1), { ...last, parts: updatedParts }];
+        });
+        break;
+    }
+  },
+});
+```
+
+See [Tool Call Rendering](/docs/react/tool-call-rendering) for how to display these in the UI.
+
+## Streaming Reasoning
+
+Display chain-of-thought as it arrives:
+
+```tsx
+useStreamChat({
+  api: "/api/chat",
+  onEvent: (event, { appendText, setMessages }) => {
+    switch (event.type) {
+      case "text_delta":
+        appendText(event.delta);
+        break;
+
+      case "reasoning_delta":
+        setMessages((msgs) => {
+          const last = msgs[msgs.length - 1];
+          if (last?.role !== "assistant") return msgs;
+
+          const lastPart = last.parts[last.parts.length - 1];
+
+          if (lastPart?.type === "reasoning") {
+            const updatedParts = [
+              ...last.parts.slice(0, -1),
+              { ...lastPart, text: lastPart.text + event.delta },
+            ];
+            return [...msgs.slice(0, -1), { ...last, parts: updatedParts }];
+          }
+
+          return [
+            ...msgs.slice(0, -1),
+            {
+              ...last,
+              parts: [...last.parts, { type: "reasoning", text: event.delta }],
+            },
+          ];
+        });
+        break;
+    }
+  },
+});
+```
+
+## Type-Safe Custom Events
+
+Define your own event types for compile-time checking by passing a type parameter to `useStreamChat`:
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+import type { SSEEvent, ContentPart } from "@deltakit/react";
+
+interface ReasoningDeltaEvent {
+  type: "reasoning_delta";
+  delta: string;
+}
+
+interface ProgressEvent {
+  type: "progress";
+  step: string;
+  percent: number;
+}
+
+type MyEvent = SSEEvent | ReasoningDeltaEvent | ProgressEvent;
+
+useStreamChat<ContentPart, MyEvent>({
+  api: "/api/chat",
+  onEvent: (event, { appendText }) => {
+    // TypeScript knows all possible event.type values
+    switch (event.type) {
+      case "text_delta":
+        appendText(event.delta);
+        break;
+      case "reasoning_delta":
+        // event.delta is typed as string
+        break;
+      case "progress":
+        // event.step and event.percent are typed
+        break;
+    }
+  },
+});
+```
+
+## Server-Side Event Format
+
+Your server can send any JSON with a `type` field as an SSE event. DeltaKit's parser yields it as-is:
+
+```python
+# Python/FastAPI
+async def generate():
+    yield f'data: {json.dumps({"type": "text_delta", "delta": "Hello"})}\n\n'
+    yield f'data: {json.dumps({"type": "reasoning_delta", "delta": "Let me think..."})}\n\n'
+    yield f'data: {json.dumps({"type": "progress", "step": "searching", "percent": 50})}\n\n'
+    yield 'data: [DONE]\n\n'
+```
+
+There is no restriction on event types — any valid JSON with a `type` field works. See [SSE Events](/docs/core/sse-events) for the built-in event types and wire format.

@@ -1,0 +1,96 @@
+---
+title: Body & Headers
+description: Send extra data and custom headers with every request.
+---
+
+## Extra Body Fields
+
+Use the `body` option to merge additional fields into every POST request alongside `message`:
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+
+function Chat() {
+  const { messages, sendMessage } = useStreamChat({
+    api: "/api/chat",
+    body: {
+      model: "gpt-4",
+      temperature: 0.7,
+      sessionId: "abc123",
+    },
+  });
+
+  // When sendMessage("Hello") is called, the POST body is:
+  // { "message": "Hello", "model": "gpt-4", "temperature": 0.7, "sessionId": "abc123" }
+}
+```
+
+### Dynamic Body Values
+
+For values that change over time, pass the current value directly — the hook reads `body` on each `sendMessage` call:
+
+```tsx
+function Chat({ sessionId }: { sessionId: string }) {
+  const [model, setModel] = useState("gpt-4");
+
+  const { messages, sendMessage } = useStreamChat({
+    api: "/api/chat",
+    body: { sessionId, model },
+  });
+
+  return (
+    <div>
+      <select value={model} onChange={(e) => setModel(e.target.value)}>
+        <option value="gpt-4">GPT-4</option>
+        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+      </select>
+      {/* ... */}
+    </div>
+  );
+}
+```
+
+## Custom Headers
+
+Use the `headers` option to add custom headers to every fetch request. `Content-Type: application/json` is always included automatically.
+
+```tsx
+const { messages, sendMessage } = useStreamChat({
+  api: "/api/chat",
+  headers: {
+    "X-Request-ID": crypto.randomUUID(),
+    "X-Client-Version": "1.0.0",
+  },
+});
+```
+
+### Server-Side Access
+
+Your backend receives these as standard HTTP headers:
+
+```python
+# FastAPI
+@app.post("/api/chat")
+async def chat(request: Request):
+    client_version = request.headers.get("X-Client-Version")
+    # ...
+```
+
+## Combining Body and Headers
+
+Both options work together:
+
+```tsx
+useStreamChat({
+  api: "/api/chat",
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
+  body: {
+    sessionId: "abc123",
+    model: "gpt-4",
+  },
+});
+```
+
+See [Authentication](/docs/react/authentication) for auth-specific patterns.

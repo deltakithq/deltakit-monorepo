@@ -1,0 +1,171 @@
+---
+title: Custom Content Parts
+description: Define and render your own content part types.
+---
+
+DeltaKit's built-in `ContentPart` union covers text, tool calls, and reasoning. When you need additional part types — images, status indicators, citations, or anything else — use the generic type parameter on `useStreamChat`.
+
+## Defining Custom Parts
+
+Create interfaces for your custom parts. Each must have a `type` string:
+
+```ts
+interface ImagePart {
+  type: "image";
+  url: string;
+  alt?: string;
+}
+
+interface StatusPart {
+  type: "status";
+  status: "thinking" | "searching" | "generating";
+}
+
+interface CitationPart {
+  type: "citation";
+  title: string;
+  url: string;
+  snippet: string;
+}
+```
+
+## Using Custom Parts with useStreamChat
+
+Pass your custom part type as the first generic parameter:
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+import type { ContentPart, SSEEvent } from "@deltakit/react";
+
+// Define custom event types for the server-side events
+interface ImageEvent {
+  type: "image";
+  url: string;
+  alt?: string;
+}
+
+interface StatusEvent {
+  type: "status_update";
+  status: "thinking" | "searching" | "generating";
+}
+
+type MyPart = ContentPart | ImagePart | StatusPart | CitationPart;
+type MyEvent = SSEEvent | ImageEvent | StatusEvent;
+
+const { messages } = useStreamChat<MyPart, MyEvent>({
+  api: "/api/chat",
+  onEvent: (event, { appendText, appendPart }) => {
+    switch (event.type) {
+      case "text_delta":
+        appendText(event.delta);
+        break;
+
+      case "image":
+        appendPart({
+          type: "image",
+          url: event.url,
+          alt: event.alt,
+        });
+        break;
+
+      case "status_update":
+        appendPart({
+          type: "status",
+          status: event.status,
+        });
+        break;
+    }
+  },
+});
+
+// messages is typed as Message<MyPart>[]
+// Each message's parts array is MyPart[]
+```
+
+## Rendering Custom Parts
+
+Build a switch component that handles all your part types:
+
+```tsx
+function Part({ part }: { part: MyPart }) {
+  switch (part.type) {
+    case "text":
+      return <p>{part.text}</p>;
+
+    case "tool_call":
+      return (
+        <div>
+          <strong>{part.tool_name}</strong>
+          {part.result ? <span>: {part.result}</span> : <span> (running...)</span>}
+        </div>
+      );
+
+    case "reasoning":
+      return <em>{part.text}</em>;
+
+    case "image":
+      return <img src={part.url} alt={part.alt ?? ""} />;
+
+    case "status":
+      return <div>Status: {part.status}...</div>;
+
+    case "citation":
+      return (
+        <a href={part.url}>
+          <strong>{part.title}</strong>
+          <p>{part.snippet}</p>
+        </a>
+      );
+  }
+}
+```
+
+Then use it in your message list:
+
+```tsx
+{messages.map((msg) => (
+  <div key={msg.id}>
+    {msg.parts.map((part, i) => (
+      <Part key={i} part={part} />
+    ))}
+  </div>
+))}
+```
+
+## Server-Side Events
+
+Your server sends events that map to your custom parts:
+
+```python
+async def generate():
+    # Status update
+    yield f'data: {json.dumps({"type": "status_update", "status": "searching"})}\n\n'
+
+    # Text content
+    yield f'data: {json.dumps({"type": "text_delta", "delta": "Here is what I found:"})}\n\n'
+
+    # Image
+    yield f'data: {json.dumps({"type": "image", "url": "https://example.com/chart.png", "alt": "Results chart"})}\n\n'
+
+    yield 'data: [DONE]\n\n'
+```
+
+## Type Safety
+
+Both generic parameters enforce type safety throughout:
+
+- **`TPart`** — Constrains `messages[n].parts[n]`, `appendPart(part)`, and `setMessages` operations.
+- **`TEvent`** — Constrains `event` in the `onEvent` callback, giving you autocomplete and exhaustive switch checking.
+
+```tsx
+useStreamChat<MyPart, MyEvent>({
+  api: "/api/chat",
+  onEvent: (event, { appendPart }) => {
+    // TypeScript error: Property 'status' does not exist on type 'TextDeltaEvent'
+    // You must narrow the type first
+    if (event.type === "status_update") {
+      appendPart({ type: "status", status: event.status }); // Fully typed
+    }
+  },
+});
+```

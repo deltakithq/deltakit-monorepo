@@ -1,160 +1,95 @@
 ---
 title: Custom Events
-description: Handle custom SSE events beyond text_delta.
+description: The SSE event protocol for custom event types.
 ---
 
-By default, `useStreamChat` only handles `text_delta` events. For tool calls, reasoning, progress indicators, or any custom data, provide an `onEvent` callback.
+DeltaKit's SSE protocol supports any JSON event with a `type` field. Beyond the built-in `text_delta`, `tool_call`, and `tool_result` events, you can define and stream your own event types.
 
-## Replacing the Default Handler
+## Event Format
 
-When you provide `onEvent`, it **replaces** the default handler entirely. You must handle `text_delta` yourself:
+Every SSE event is a `data:` line containing a JSON object with a `type` field:
 
-```ts
-useStreamChat({
-  api: "/api/chat",
-  onEvent: (event, { appendText }) => {
-    // Without this, text won't appear!
-    if (event.type === "text_delta") {
-      appendText(event.delta);
-    }
-  },
-});
+```
+data: {"type":"your_event_type","key":"value"}
 ```
 
-## Handling Tool Calls
+DeltaKit's `parseSSEStream` yields each parsed JSON object as-is. There is no validation — any valid JSON with a `type` field works.
 
-```ts
-useStreamChat({
-  api: "/api/chat",
-  onEvent: (event, { appendText, appendPart, setMessages }) => {
-    switch (event.type) {
-      case "text_delta":
-        appendText(event.delta);
-        break;
+## Built-in Event Types
 
-      case "tool_call":
-        appendPart({
-          type: "tool_call",
-          tool_name: event.tool_name,
-          argument: event.argument,
-          callId: event.call_id,
-        });
-        break;
+These are the standard types defined by `SSEEvent`:
 
-      case "tool_result":
-        setMessages((msgs) => {
-          const last = msgs[msgs.length - 1];
-          if (last?.role !== "assistant") return msgs;
+| Type | Description |
+|------|-------------|
+| `text_delta` | Append text to the response. `{ type: "text_delta", delta: "..." }` |
+| `tool_call` | A tool/function call. `{ type: "tool_call", tool_name, argument, call_id? }` |
+| `tool_result` | Result of a tool call. `{ type: "tool_result", call_id, output }` |
 
-          const updatedParts = last.parts.map((part) => {
-            if (part.type === "tool_call" && part.callId === event.call_id) {
-              return { ...part, result: event.output };
-            }
-            return part;
-          });
+See [SSE Events](/docs/core/sse-events) for the full type definitions.
 
-          return [...msgs.slice(0, -1), { ...last, parts: updatedParts }];
-        });
-        break;
-    }
-  },
-});
-```
+## Custom Event Examples
 
-## Streaming Reasoning
-
-Display chain-of-thought as it arrives:
-
-```ts
-useStreamChat({
-  api: "/api/chat",
-  onEvent: (event, { appendText, setMessages }) => {
-    switch (event.type) {
-      case "text_delta":
-        appendText(event.delta);
-        break;
-
-      case "reasoning_delta":
-        setMessages((msgs) => {
-          const last = msgs[msgs.length - 1];
-          if (last?.role !== "assistant") return msgs;
-
-          const lastPart = last.parts[last.parts.length - 1];
-
-          if (lastPart?.type === "reasoning") {
-            const updatedParts = [
-              ...last.parts.slice(0, -1),
-              { ...lastPart, text: lastPart.text + event.delta },
-            ];
-            return [...msgs.slice(0, -1), { ...last, parts: updatedParts }];
-          }
-
-          return [
-            ...msgs.slice(0, -1),
-            {
-              ...last,
-              parts: [...last.parts, { type: "reasoning", text: event.delta }],
-            },
-          ];
-        });
-        break;
-    }
-  },
-});
-```
-
-## Custom Event Types with Full Type Safety
-
-Define your own event types for compile-time checking:
-
-```ts
-interface ReasoningDeltaEvent {
-  type: "reasoning_delta";
-  delta: string;
-}
-
-type MyEvent = SSEEvent | ReasoningDeltaEvent;
-
-useStreamChat<ContentPart, MyEvent>({
-  api: "/api/chat",
-  onEvent: (event, { appendText }) => {
-    // TypeScript knows all possible event.type values
-    switch (event.type) {
-      case "text_delta":
-        appendText(event.delta);
-        break;
-      case "reasoning_delta":
-        // event.delta is typed as string
-        break;
-      case "tool_call":
-        // event.tool_name is typed
-        break;
-      case "tool_result":
-        // event.call_id is typed
-        break;
-    }
-  },
-});
-```
-
-## Server-Side Event Format
-
-Your server sends any JSON as a `data:` line. DeltaKit's `parseSSEStream` yields it as-is:
+### Reasoning / Chain-of-Thought
 
 ```python
-# Python/FastAPI
-async def generate():
-    # Text
-    yield f'data: {json.dumps({"type": "text_delta", "delta": "Hello"})}\n\n'
-
-    # Reasoning
-    yield f'data: {json.dumps({"type": "reasoning_delta", "delta": "Let me think..."})}\n\n'
-
-    # Custom progress
-    yield f'data: {json.dumps({"type": "progress", "step": "searching", "percent": 50})}\n\n'
-
-    # Done
-    yield 'data: [DONE]\n\n'
+yield f'data: {json.dumps({"type": "reasoning_delta", "delta": "Let me think about this..."})}\n\n'
 ```
 
-There is no restriction on what event types you can send — any valid JSON with a `type` field works.
+### Progress Indicators
+
+```python
+yield f'data: {json.dumps({"type": "progress", "step": "searching", "percent": 50})}\n\n'
+```
+
+### Image Generation
+
+```python
+yield f'data: {json.dumps({"type": "image", "url": "https://example.com/result.png", "alt": "Generated image"})}\n\n'
+```
+
+### Citations
+
+```python
+yield f'data: {json.dumps({"type": "citation", "title": "Source", "url": "https://example.com", "snippet": "..."})}\n\n'
+```
+
+## Server Example (FastAPI)
+
+A complete example streaming multiple event types:
+
+```python
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+import json
+
+app = FastAPI()
+
+@app.post("/api/chat")
+async def chat(request: dict):
+    async def generate():
+        # Reasoning
+        yield f'data: {json.dumps({"type": "reasoning_delta", "delta": "Let me think..."})}\n\n'
+
+        # Progress
+        yield f'data: {json.dumps({"type": "progress", "step": "searching", "percent": 50})}\n\n'
+
+        # Text response
+        yield f'data: {json.dumps({"type": "text_delta", "delta": "Here is what I found:"})}\n\n'
+
+        # Done
+        yield 'data: [DONE]\n\n'
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+```
+
+## Stream Termination
+
+The stream ends when the server sends `data: [DONE]`. This is not JSON — it's a special sentinel that `parseSSEStream` recognizes to stop iteration.
+
+```
+data: [DONE]
+```
+
+## Client-Side Handling
+
+For handling custom events in React with `useStreamChat`, see [Custom Event Handling](/docs/react/custom-event-handling).
