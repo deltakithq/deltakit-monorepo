@@ -30,11 +30,11 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
 	return (
-		<html lang="en" suppressHydrationWarning>
+		<html lang="en" className="dark" suppressHydrationWarning>
 			<head>
 				<HeadContent />
 			</head>
-			<body>
+			<body className="bg-neutral-950 text-neutral-100">
 				{children}
 				<TanStackDevtools
 					config={{

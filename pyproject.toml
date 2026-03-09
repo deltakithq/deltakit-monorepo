@@ -20,9 +20,11 @@ python-downloads = "automatic"
 
 [tool.uv.workspace]
 members = [
-    "apps/*",
-    "packages/*",
     "examples/fastapi-tanstack-api",
+]
+exclude = [
+    "packages/*",
+    "apps/*",
 ]
 
 [tool.uv.pip]

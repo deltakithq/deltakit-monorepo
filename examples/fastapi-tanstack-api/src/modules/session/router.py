@@ -1,10 +1,17 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio.session import AsyncSession
+from sqlmodel import select
 
 from src.core.engine import get_db
 from src.modules.session.schema import ChatSession
 
 router = APIRouter(prefix="/api/chat-sessions", tags=["sessions"])
+
+
+@router.get("/")
+async def list_sessions(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(ChatSession))
+    return result.scalars().all()
 
 
 @router.post("/")
