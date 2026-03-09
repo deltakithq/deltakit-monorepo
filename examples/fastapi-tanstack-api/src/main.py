@@ -1,21 +1,9 @@
-from contextlib import asynccontextmanager
-from collections.abc import AsyncIterator
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.core.seed import seed_sessions
-from src.modules.session.router import router as session_router
 from src.modules.chat.router import router as chat_router
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    await seed_sessions()
-    yield
-
-
-app = FastAPI(title="FastAPI Backend", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="FastAPI Backend", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,  # type: ignore
@@ -25,7 +13,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(session_router)
 app.include_router(chat_router)
 
 

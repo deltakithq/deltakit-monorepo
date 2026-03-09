@@ -1,3 +1,9 @@
 from agents.extensions.models.litellm_model import LitellmModel
 
-llm_model = LitellmModel(model="openai/gpt-4o-mini")
+from src.core.settings import settings
+
+llm_model = LitellmModel(
+    base_url=settings.OPENROUTER_BASE_URL,
+    api_key=settings.OPENROUTER_API_KEY,
+    model="openrouter/openai/gpt-5.2",
+)

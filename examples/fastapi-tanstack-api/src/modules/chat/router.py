@@ -5,6 +5,7 @@ from agents.extensions.memory import SQLAlchemySession
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from openai.types.responses import ResponseFunctionToolCall, ResponseTextDeltaEvent
+from sqlalchemy import text
 
 from src.core.engine import engine
 from src.modules.agents.models import llm_model
@@ -14,11 +15,24 @@ from src.modules.chat.schema import ChatRequest
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
+SESSION_ID = "default"
+
+
+@router.get("/")
+async def get_history():
+    session = SQLAlchemySession(
+        session_id=SESSION_ID,
+        engine=engine,
+        create_tables=True,
+    )
+    items = await session.get_items()
+    return items
+
 
 @router.post("/")
 async def generate_answer(request: ChatRequest):
     session = SQLAlchemySession(
-        session_id=request.session_id,
+        session_id=SESSION_ID,
         engine=engine,
         create_tables=True,
     )
@@ -47,3 +61,13 @@ async def generate_answer(request: ChatRequest):
                     yield f"data: {json.dumps({'type': 'tool_call', 'tool_name': event.item.raw_item.name, 'argument': event.item.raw_item.arguments})}\n\n"  # noqa: E501
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@router.post("/clear")
+async def clear_session():
+    async with engine.begin() as conn:
+        await conn.execute(
+            text("DELETE FROM agent_messages WHERE session_id = :sid"),
+            {"sid": SESSION_ID},
+        )
+    return {"status": "ok"}
