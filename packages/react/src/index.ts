@@ -10,10 +10,12 @@ export type {
 export type {
   TextPart,
   ToolCallPart,
+  ReasoningPart,
   ContentPart,
   Message,
   TextDeltaEvent,
   ToolCallEvent,
+  ToolResultEvent,
   SSEEvent,
 } from "@deltakit/core";
 

@@ -1,10 +1,12 @@
 export type {
   TextPart,
   ToolCallPart,
+  ReasoningPart,
   ContentPart,
   Message,
   TextDeltaEvent,
   ToolCallEvent,
+  ToolResultEvent,
   SSEEvent,
 } from "./types";
 

@@ -1,4 +1,4 @@
-import type { ContentPart, Message, TextPart, ToolCallPart } from "./types";
+import type { ContentPart, Message, ReasoningPart, TextPart, ToolCallPart } from "./types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,7 +27,7 @@ function warnDev(message: string, item?: RawItem): void {
 // ---------------------------------------------------------------------------
 
 function extractId(item: RawItem, fallbackIndex: number): string {
-  if (typeof item.id === "string" && item.id) {
+  if (typeof item.id === "string" && item.id && item.id !== "__fake_id__") {
     return item.id;
   }
   return `openai_${fallbackIndex}`;
@@ -212,6 +212,32 @@ function extractImageGeneration(_item: RawItem): TextPart {
 }
 
 /**
+ * Extract reasoning summary from reasoning items.
+ */
+function extractReasoning(item: RawItem): ReasoningPart {
+  const summary = item.summary;
+
+  if (Array.isArray(summary)) {
+    const text = summary
+      .map((s: unknown) => {
+        if (s && typeof s === "object") {
+          const sum = s as Record<string, unknown>;
+          if (sum.type === "summary_text" && typeof sum.text === "string") {
+            return sum.text;
+          }
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .join("\n");
+
+    return { type: "reasoning", text };
+  }
+
+  return { type: "reasoning", text: "" };
+}
+
+/**
  * Extract ToolCallPart from apply_patch_call items.
  */
 function extractApplyPatchCall(item: RawItem): ToolCallPart | null {
@@ -268,40 +294,20 @@ function extractCustomToolCall(item: RawItem): ToolCallPart | null {
   };
 }
 
-/**
- * Extract text from reasoning items.
- */
-function extractReasoning(item: RawItem): TextPart {
-  const summary = item.summary;
-
-  if (Array.isArray(summary)) {
-    const text = summary
-      .map((s: unknown) => {
-        if (s && typeof s === "object") {
-          const sum = s as Record<string, unknown>;
-          if (sum.type === "summary_text" && typeof sum.text === "string") {
-            return sum.text;
-          }
-        }
-        return "";
-      })
-      .filter(Boolean)
-      .join("\n");
-
-    return { type: "text", text: `[Reasoning]\n${text}` };
-  }
-
-  return { type: "text", text: "[Reasoning]" };
-}
 
 // ---------------------------------------------------------------------------
 // Tool Output Extraction
 // ---------------------------------------------------------------------------
 
+interface ToolOutputResult {
+  callId: string | undefined;
+  output: string;
+}
+
 /**
- * Extract text part from function_call_output items.
+ * Extract output from function_call_output items.
  */
-function extractFunctionCallOutput(item: RawItem): TextPart | null {
+function extractFunctionCallOutput(item: RawItem): ToolOutputResult | null {
   const output = item.output;
   const callId = item.call_id;
 
@@ -314,26 +320,22 @@ function extractFunctionCallOutput(item: RawItem): TextPart | null {
     text = String(output);
   }
 
-  const prefix = callId ? `[Tool Result (${callId})]: ` : "[Tool Result]: ";
-  return { type: "text", text: prefix + text };
+  return { callId: typeof callId === "string" ? callId : undefined, output: text };
 }
 
 /**
- * Extract text part from computer_call_output items.
+ * Extract output from computer_call_output items.
  */
-function extractComputerCallOutput(item: RawItem): TextPart | null {
+function extractComputerCallOutput(item: RawItem): ToolOutputResult | null {
   const output = item.output;
   const callId = item.call_id;
 
   if (output && typeof output === "object") {
     const out = output as Record<string, unknown>;
     if (out.type === "computer_screenshot") {
-      const prefix = callId
-        ? `[Tool Result (${callId})]: `
-        : "[Tool Result]: ";
       return {
-        type: "text",
-        text: prefix + "[Screenshot captured]",
+        callId: typeof callId === "string" ? callId : undefined,
+        output: "[Screenshot captured]",
       };
     }
   }
@@ -342,9 +344,9 @@ function extractComputerCallOutput(item: RawItem): TextPart | null {
 }
 
 /**
- * Extract text part from shell/local_shell output items.
+ * Extract output from shell/local_shell output items.
  */
-function extractShellOutput(item: RawItem): TextPart | null {
+function extractShellOutput(item: RawItem): ToolOutputResult | null {
   const output = item.output;
   const id = item.id;
 
@@ -372,27 +374,25 @@ function extractShellOutput(item: RawItem): TextPart | null {
     text = String(output);
   }
 
-  const prefix = id ? `[Tool Result (${id})]: ` : "[Tool Result]: ";
-  return { type: "text", text: prefix + text };
+  return { callId: typeof id === "string" ? id : undefined, output: text };
 }
 
 /**
- * Extract text part from apply_patch_call_output items.
+ * Extract output from apply_patch_call_output items.
  */
-function extractApplyPatchOutput(item: RawItem): TextPart | null {
+function extractApplyPatchOutput(item: RawItem): ToolOutputResult | null {
   const output = item.output;
   const callId = item.call_id;
   const status = item.status;
 
   const text = `Status: ${status}${output ? `\n${output}` : ""}`;
-  const prefix = callId ? `[Tool Result (${callId})]: ` : "[Tool Result]: ";
-  return { type: "text", text: prefix + text };
+  return { callId: typeof callId === "string" ? callId : undefined, output: text };
 }
 
 /**
- * Extract text part from custom_tool_call_output items.
+ * Extract output from custom_tool_call_output items.
  */
-function extractCustomToolOutput(item: RawItem): TextPart | null {
+function extractCustomToolOutput(item: RawItem): ToolOutputResult | null {
   const output = item.output;
   const callId = item.call_id;
 
@@ -405,8 +405,39 @@ function extractCustomToolOutput(item: RawItem): TextPart | null {
     text = String(output);
   }
 
-  const prefix = callId ? `[Tool Result (${callId})]: ` : "[Tool Result]: ";
-  return { type: "text", text: prefix + text };
+  return { callId: typeof callId === "string" ? callId : undefined, output: text };
+}
+
+/**
+ * Attach a tool output result to the matching ToolCallPart in the current
+ * assistant message (matched by callId). If no match is found, the result
+ * is silently dropped.
+ */
+function attachToolResult(
+  message: Message<ContentPart> | null,
+  result: ToolOutputResult,
+): void {
+  if (!message) return;
+
+  // Find the matching tool_call part by callId
+  if (result.callId) {
+    for (let j = message.parts.length - 1; j >= 0; j--) {
+      const part = message.parts[j];
+      if (part.type === "tool_call" && part.callId === result.callId) {
+        (part as ToolCallPart).result = result.output;
+        return;
+      }
+    }
+  }
+
+  // Fallback: attach to the last tool_call part without a result
+  for (let j = message.parts.length - 1; j >= 0; j--) {
+    const part = message.parts[j];
+    if (part.type === "tool_call" && !(part as ToolCallPart).result) {
+      (part as ToolCallPart).result = result.output;
+      return;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -470,15 +501,16 @@ export function fromOpenAiAgents(items: RawItem[]): Message<ContentPart>[] {
             });
           }
         } else if (role === "assistant") {
-          if (currentAssistantMessage) {
-            messages.push(currentAssistantMessage);
-          }
           const parts = extractAssistantParts(item);
-          currentAssistantMessage = {
-            id: extractId(item, i),
-            role: "assistant",
-            parts: parts.length > 0 ? parts : [],
-          };
+          if (currentAssistantMessage) {
+            currentAssistantMessage.parts.push(...parts);
+          } else {
+            currentAssistantMessage = {
+              id: extractId(item, i),
+              role: "assistant",
+              parts: parts.length > 0 ? parts : [],
+            };
+          }
         }
         // Skip system/developer
         continue;
@@ -508,17 +540,18 @@ export function fromOpenAiAgents(items: RawItem[]): Message<ContentPart>[] {
           });
         }
       } else if (role === "assistant") {
-        // Finalize any current assistant message
-        if (currentAssistantMessage) {
-          messages.push(currentAssistantMessage);
-        }
-
         const parts = extractAssistantParts(item);
-        currentAssistantMessage = {
-          id: extractId(item, i),
-          role: "assistant",
-          parts: parts.length > 0 ? parts : [],
-        };
+
+        if (currentAssistantMessage) {
+          // Merge into existing assistant message (e.g. reasoning + text)
+          currentAssistantMessage.parts.push(...parts);
+        } else {
+          currentAssistantMessage = {
+            id: extractId(item, i),
+            role: "assistant",
+            parts: parts.length > 0 ? parts : [],
+          };
+        }
       } else if (role === "system" || role === "developer") {
         // Skip system/developer messages (not displayable in chat UI)
         continue;
@@ -573,7 +606,6 @@ export function fromOpenAiAgents(items: RawItem[]): Message<ContentPart>[] {
         currentAssistantMessage.parts.push(extractImageGeneration(item));
         continue;
       case "reasoning":
-        // Special case: reasoning becomes a text part
         if (!currentAssistantMessage) {
           currentAssistantMessage = {
             id: extractId(item, i),
@@ -597,37 +629,30 @@ export function fromOpenAiAgents(items: RawItem[]): Message<ContentPart>[] {
       continue;
     }
 
-    // Handle tool outputs (append to current assistant message)
-    let toolOutputPart: TextPart | null = null;
+    // Handle tool outputs — attach result to the matching tool_call part
+    let toolOutput: ToolOutputResult | null = null;
 
     switch (type) {
       case "function_call_output":
-        toolOutputPart = extractFunctionCallOutput(item);
+        toolOutput = extractFunctionCallOutput(item);
         break;
       case "computer_call_output":
-        toolOutputPart = extractComputerCallOutput(item);
+        toolOutput = extractComputerCallOutput(item);
         break;
       case "local_shell_call_output":
       case "shell_call_output":
-        toolOutputPart = extractShellOutput(item);
+        toolOutput = extractShellOutput(item);
         break;
       case "apply_patch_call_output":
-        toolOutputPart = extractApplyPatchOutput(item);
+        toolOutput = extractApplyPatchOutput(item);
         break;
       case "custom_tool_call_output":
-        toolOutputPart = extractCustomToolOutput(item);
+        toolOutput = extractCustomToolOutput(item);
         break;
     }
 
-    if (toolOutputPart) {
-      if (!currentAssistantMessage) {
-        currentAssistantMessage = {
-          id: extractId(item, i),
-          role: "assistant",
-          parts: [],
-        };
-      }
-      currentAssistantMessage.parts.push(toolOutputPart);
+    if (toolOutput) {
+      attachToolResult(currentAssistantMessage, toolOutput);
       continue;
     }
 

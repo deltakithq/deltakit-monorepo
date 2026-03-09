@@ -1,5 +1,7 @@
-import { useStreamChat, fromOpenAiAgents } from "@deltakit/react";
+import { fromOpenAiAgents, useStreamChat } from "@deltakit/react";
 import { createFileRoute } from "@tanstack/react-router";
+import Markdown from "react-markdown";
+import { ToolCall } from "../components/tool-call";
 
 const API_URL = "http://localhost:8000/api/chat/";
 
@@ -25,6 +27,17 @@ function Chat() {
 		{
 			api: API_URL,
 			initialMessages,
+			onEvent: (event, helpers) => {
+				if (event.type === "text_delta") {
+					helpers.appendText(event.delta);
+				} else if (event.type === "tool_call") {
+					helpers.appendPart({
+						type: "tool_call",
+						tool_name: event.tool_name,
+						argument: event.argument,
+					});
+				}
+			},
 		},
 	);
 
@@ -59,23 +72,21 @@ function Chat() {
 								<p className="mb-1 text-xs font-semibold text-neutral-400">
 									{msg.role === "user" ? "You" : "Assistant"}
 								</p>
-								{msg.parts.map((part) => {
-									switch (part.type) {
-										case "text":
-											return (
-												<span key={part.type} className="whitespace-pre-wrap">
-													{part.text}
-												</span>
-											);
-										case "tool_call":
-											return (
-												<pre
-													key={`${part.type}-${part.tool_name}`}
-													className="mt-1 rounded bg-neutral-800 p-2 text-xs text-neutral-400"
-												>
-													{`[Tool: ${part.tool_name}]\n${JSON.stringify(JSON.parse(part.argument), null, 2)}`}
-												</pre>
-											);
+							{msg.parts.map((part, partIndex) => {
+								switch (part.type) {
+									case "text":
+										return (
+											<div key={`text-${partIndex}`} className="prose prose-invert prose-sm max-w-none">
+												<Markdown>{part.text}</Markdown>
+											</div>
+										);
+								case "tool_call":
+									return (
+										<ToolCall
+											key={`tool_call-${partIndex}`}
+											argument={part.argument}
+										/>
+									);
 										default:
 											return null;
 									}

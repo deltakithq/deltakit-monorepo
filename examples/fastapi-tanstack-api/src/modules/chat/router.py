@@ -56,8 +56,10 @@ async def generate_answer(request: ChatRequest):
                 ):
                     yield f"data: {json.dumps({'type': 'text_delta', 'delta': event.data.delta})}\n\n"  # noqa: E501
 
-            elif isinstance(event, RunItemStreamEvent) and event.name == "tool_called":
-                if isinstance(event.item.raw_item, ResponseFunctionToolCall):
+            elif isinstance(event, RunItemStreamEvent):
+                if event.name == "tool_called" and isinstance(
+                    event.item.raw_item, ResponseFunctionToolCall
+                ):
                     yield f"data: {json.dumps({'type': 'tool_call', 'tool_name': event.item.raw_item.name, 'argument': event.item.raw_item.arguments})}\n\n"  # noqa: E501
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

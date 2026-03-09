@@ -1,3 +1,5 @@
+import json
+
 from agents import function_tool
 from tavily import TavilyClient
 
@@ -15,4 +17,4 @@ def search_web(query: str, label: str | None = None):
     label: The label to use to tell what you are currently doing with this tool
     """
     results = tavily_client.search(query, max_results=3)
-    return results
+    return json.dumps(results)
