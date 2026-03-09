@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+.uv/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Cache
+.moon/cache/
+.moon/docker/
+.proto/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+*.tgz
+*.tar.gz
+.cache/
+temp/
+tmp/

@@ -1,0 +1,56 @@
+$schema: 'https://moonrepo.dev/schemas/tasks.json'
+
+fileGroups:
+  sources:
+    - 'src/**/*'
+    - 'types/**/*'
+  tests:
+    - 'tests/**/*'
+    - '**/*.test.*'
+    - '**/*.spec.*'
+  config:
+    - '*.config.*'
+    - '.eslintrc.*'
+    - 'tsconfig.json'
+
+tasks:
+  build:
+    command: 'noop'
+    description: 'Build the project'
+    inputs:
+      - '@globs(sources)'
+      - '@globs(config)'
+    outputs:
+      - 'dist'
+      - 'build'
+
+  dev:
+    command: 'noop'
+    description: 'Run the project in development mode'
+    local: true
+
+  typecheck:
+    command: 'tsc --noEmit'
+    description: 'Type-check the project'
+    inputs:
+      - '@globs(sources)'
+      - '@globs(tests)'
+      - 'tsconfig.json'
+
+  check:
+    command: 'biome check .'
+    description: 'Lint and format check'
+    inputs:
+      - '@globs(sources)'
+      - '@globs(tests)'
+      - 'biome.json'
+
+  format:
+    command: 'biome format --write .'
+    description: 'Format code'
+    local: true
+
+  clean:
+    command: 'rm -rf dist build .moon/cache'
+    description: 'Clean build outputs'
+    local: true

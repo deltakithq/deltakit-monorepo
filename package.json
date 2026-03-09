@@ -1,0 +1,26 @@
+{
+	"name": "monorepo",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "moon run :dev",
+		"build": "moon run :build",
+		"check": "biome check .",
+		"check:fix": "biome check --write .",
+		"format": "biome check --write . --unsafe",
+		"typecheck": "moon run :typecheck",
+		"clean": "moon run :clean && rm -rf .moon/cache",
+		"install:clean": "rm -rf node_modules pnpm-lock.yaml && pnpm install"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.6",
+		"@moonrepo/cli": "^1.32.8",
+		"typescript": "^5.7.2"
+	},
+	"packageManager": "pnpm@9.15.0",
+	"engines": {
+		"node": ">=20.0.0",
+		"pnpm": ">=9.0.0"
+	}
+}

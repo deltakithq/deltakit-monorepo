@@ -1,0 +1,14 @@
+packages:
+  # Apps
+  - "apps/*"
+  
+  # Packages
+  - "packages/*"
+  
+  # Examples
+  - "examples/*"
+  
+  # Exclude build outputs and node_modules
+  - "!**/dist"
+  - "!**/build"
+  - "!**/node_modules"

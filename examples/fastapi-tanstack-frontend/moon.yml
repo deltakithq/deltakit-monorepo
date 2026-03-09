@@ -1,0 +1,48 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+project:
+  name: 'fastapi-tanstack-frontend'
+  type: 'application'
+
+stack: frontend
+
+language: typescript
+
+tasks:
+  dev:
+    command: 'pnpm'
+    args: ['exec', 'vite', 'dev', '--port', '3000']
+    type: 'run'
+  
+  build:
+    command: 'pnpm'
+    args: ['exec', 'vite', 'build']
+    type: 'build'
+    inputs:
+      - 'src/**/*'
+      - 'public/**/*'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+    outputs:
+      - 'dist'
+  
+  preview:
+    command: 'pnpm'
+    args: ['exec', 'vite', 'preview']
+    type: 'run'
+    deps:
+      - '~:build'
+  
+  format:
+    command: 'pnpm'
+    args: ['exec', 'biome', 'format', '--write', '.']
+    type: 'run'
+
+  test:
+    command: 'pnpm'
+    args: ['exec', 'vitest', 'run']
+    type: 'test'
+    inputs:
+      - 'src/**/*'
+      - '**/*.test.ts'
+      - '**/*.test.tsx'
