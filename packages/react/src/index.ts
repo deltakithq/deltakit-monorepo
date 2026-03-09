@@ -17,4 +17,4 @@ export type {
   SSEEvent,
 } from "@deltakit/core";
 
-export { parseSSEStream } from "@deltakit/core";
+export { parseSSEStream, fromOpenAiAgents } from "@deltakit/core";
