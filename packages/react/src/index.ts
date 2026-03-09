@@ -1,6 +1,12 @@
-export { useChat } from "./use-chat";
-export { parseSSEStream } from "./sse-parser";
+export { useStreamChat } from "./use-stream-chat";
 
+export type {
+  EventHelpers,
+  UseStreamChatOptions,
+  UseStreamChatReturn,
+} from "./types";
+
+// Re-export core types so consumers only need to import from @deltakit/react
 export type {
   TextPart,
   ToolCallPart,
@@ -9,7 +15,6 @@ export type {
   TextDeltaEvent,
   ToolCallEvent,
   SSEEvent,
-  EventHelpers,
-  UseChatOptions,
-  UseChatReturn,
-} from "./types";
+} from "@deltakit/core";
+
+export { parseSSEStream } from "@deltakit/core";

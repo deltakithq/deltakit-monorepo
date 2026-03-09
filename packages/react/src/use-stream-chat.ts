@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { parseSSEStream } from "./sse-parser";
+import { parseSSEStream } from "@deltakit/core";
 import type {
   ContentPart,
-  EventHelpers,
   Message,
   SSEEvent,
-  UseChatOptions,
-  UseChatReturn,
+} from "@deltakit/core";
+import type {
+  EventHelpers,
+  UseStreamChatOptions,
+  UseStreamChatReturn,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -43,13 +45,13 @@ function defaultOnEvent(
 }
 
 // ---------------------------------------------------------------------------
-// useChat
+// useStreamChat
 // ---------------------------------------------------------------------------
 
-export function useChat<
+export function useStreamChat<
   TPart extends { type: string } = ContentPart,
   TEvent extends { type: string } = SSEEvent,
->(options: UseChatOptions<TPart, TEvent>): UseChatReturn<TPart> {
+>(options: UseStreamChatOptions<TPart, TEvent>): UseStreamChatReturn<TPart> {
   const {
     api,
     headers,

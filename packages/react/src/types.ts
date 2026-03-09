@@ -1,51 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
+import type { ContentPart, Message, SSEEvent } from "@deltakit/core";
 
-// ---------------------------------------------------------------------------
-// Content Parts
-// ---------------------------------------------------------------------------
-
-export interface TextPart {
-  type: "text";
-  text: string;
-}
-
-export interface ToolCallPart {
-  type: "tool_call";
-  tool_name: string;
-  argument: string;
-  /** Unique ID to correlate a tool call with its result. Present in agent history, absent during SSE streaming. */
-  callId?: string;
-}
-
-/** Built-in content part types provided by the library. */
-export type ContentPart = TextPart | ToolCallPart;
-
-// ---------------------------------------------------------------------------
-// Message
-// ---------------------------------------------------------------------------
-
-export interface Message<TPart extends { type: string } = ContentPart> {
-  id: string;
-  role: "user" | "assistant";
-  parts: TPart[];
-}
-
-// ---------------------------------------------------------------------------
-// SSE Events
-// ---------------------------------------------------------------------------
-
-export interface TextDeltaEvent {
-  type: "text_delta";
-  delta: string;
-}
-
-export interface ToolCallEvent {
-  type: "tool_call";
-  tool_name: string;
-  argument: string;
-}
-
-export type SSEEvent = TextDeltaEvent | ToolCallEvent;
+export type { ContentPart, Message, SSEEvent };
 
 // ---------------------------------------------------------------------------
 // Event Helpers — passed to the `onEvent` callback so consumers can
@@ -67,7 +23,7 @@ export interface EventHelpers<TPart extends { type: string } = ContentPart> {
 // Hook Options
 // ---------------------------------------------------------------------------
 
-export interface UseChatOptions<
+export interface UseStreamChatOptions<
   TPart extends { type: string } = ContentPart,
   TEvent extends { type: string } = SSEEvent,
 > {
@@ -107,7 +63,7 @@ export interface UseChatOptions<
 // Hook Return
 // ---------------------------------------------------------------------------
 
-export interface UseChatReturn<TPart extends { type: string } = ContentPart> {
+export interface UseStreamChatReturn<TPart extends { type: string } = ContentPart> {
   /** Chronological list of messages in the conversation. */
   messages: Message<TPart>[];
 

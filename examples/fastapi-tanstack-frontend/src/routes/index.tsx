@@ -1,4 +1,4 @@
-import { useChat } from "@deltakit/react";
+import { useStreamChat } from "@deltakit/react";
 import { createFileRoute } from "@tanstack/react-router";
 
 const API_URL = "http://localhost:8000/api/chat/";
@@ -18,7 +18,7 @@ function Chat() {
 	const history = Route.useLoaderData();
 	console.log(history);
 
-	const { messages, isLoading, sendMessage, stop, setMessages } = useChat({
+	const { messages, isLoading, sendMessage, stop, setMessages } = useStreamChat({
 		api: API_URL,
 	});
 
