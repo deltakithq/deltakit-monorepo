@@ -18,6 +18,8 @@ tasks:
     command: 'pnpm'
     args: ['exec', 'vite', 'build']
     type: 'build'
+    deps:
+      - 'markdown:build'
     inputs:
       - 'src/**/*'
       - 'public/**/*'
