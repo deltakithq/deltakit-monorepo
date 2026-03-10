@@ -1,0 +1,38 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+project:
+  name: 'react'
+  type: 'library'
+
+stack: frontend
+language: typescript
+
+tasks:
+  build:
+    command: 'pnpm'
+    args: ['exec', 'tsup']
+    deps:
+      - 'core:build'
+    inputs:
+      - 'src/**/*'
+      - 'tsup.config.ts'
+      - 'tsconfig.json'
+    outputs:
+      - 'dist'
+
+  dev:
+    command: 'pnpm'
+    args: ['exec', 'tsup', '--watch']
+    local: true
+
+  test:
+    command: 'echo'
+    args: ['No tests for react package']
+
+  publish:
+    command: 'pnpm'
+    args: ['publish', '--access', 'public', '--no-git-checks']
+    deps:
+      - '~:build'
+    options:
+      cwd: 'packages/react'

@@ -1,0 +1,43 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+project:
+  name: 'markdown'
+  type: 'library'
+
+stack: frontend
+language: typescript
+
+tasks:
+  build:
+    command: 'pnpm'
+    args: ['exec', 'tsup']
+    deps:
+      - 'core:build'
+    inputs:
+      - 'src/**/*'
+      - 'tsup.config.ts'
+      - 'tsconfig.json'
+    outputs:
+      - 'dist'
+
+  dev:
+    command: 'pnpm'
+    args: ['exec', 'tsup', '--watch']
+    local: true
+
+  test:
+    command: 'pnpm'
+    args: ['exec', 'vitest', 'run']
+    inputs:
+      - 'src/**/*'
+      - 'tests/**/*'
+      - 'vitest.config.ts'
+
+  publish:
+    command: 'pnpm'
+    args: ['publish', '--access', 'public', '--no-git-checks']
+    deps:
+      - '~:build'
+      - '~:test'
+    options:
+      cwd: 'packages/markdown'
