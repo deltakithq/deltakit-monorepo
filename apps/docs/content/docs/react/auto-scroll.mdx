@@ -1,0 +1,116 @@
+---
+title: Auto Scroll
+description: Keep the chat scrolled to the bottom during streaming.
+---
+
+## Basic Usage
+
+`useAutoScroll` keeps your scroll container pinned to the bottom as new content streams in.
+
+```tsx
+import { useStreamChat, useAutoScroll } from "@deltakit/react";
+
+function Chat() {
+  const { messages, sendMessage } = useStreamChat({ api: "/api/chat" });
+  const { ref, scrollToBottom, isAtBottom } = useAutoScroll([messages]);
+
+  return (
+    <div className="flex h-screen flex-col">
+      <div ref={ref} className="flex-1 overflow-y-auto">
+        {messages.map((msg) => (
+          <div key={msg.id}>
+            <strong>{msg.role}:</strong>{" "}
+            {msg.parts
+              .filter((p) => p.type === "text")
+              .map((p) => p.text)
+              .join("")}
+          </div>
+        ))}
+      </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const input = e.currentTarget.elements.namedItem(
+            "message",
+          ) as HTMLInputElement;
+          if (!input.value.trim()) return;
+          sendMessage(input.value);
+          scrollToBottom();
+          input.value = "";
+        }}
+      >
+        <input name="message" placeholder="Type a message..." />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  );
+}
+```
+
+## How It Works
+
+The hook tracks whether the user is near the bottom of the scroll container:
+
+- **Pinned (default)** — as content grows, the view stays at the bottom.
+- **Detached** — when the user scrolls up, auto-scroll pauses so they can read earlier messages undisturbed.
+- **Re-pinned** — when the user scrolls back near the bottom (within `threshold` pixels), auto-scroll re-engages automatically.
+
+Internally the hook uses a `MutationObserver` and `ResizeObserver`, so it catches content changes during streaming even between React re-renders (e.g. DOM mutations from markdown renderers).
+
+## Scroll to Bottom on Send
+
+The hook does **not** automatically scroll when a new user message is sent — it only reacts to scroll position. Call `scrollToBottom()` in your submit handler to re-pin:
+
+```tsx
+const handleSubmit = (text: string) => {
+  sendMessage(text);
+  scrollToBottom();
+};
+```
+
+## Showing a "Scroll to Bottom" Indicator
+
+Use the reactive `isAtBottom` value to conditionally render a button when the user has scrolled away:
+
+```tsx
+const { ref, scrollToBottom, isAtBottom } = useAutoScroll([messages]);
+
+return (
+  <div className="relative">
+    <div ref={ref} className="h-96 overflow-y-auto">
+      {/* messages */}
+    </div>
+
+    {!isAtBottom && (
+      <button
+        onClick={scrollToBottom}
+        className="absolute bottom-4 left-1/2 -translate-x-1/2"
+      >
+        New messages below
+      </button>
+    )}
+  </div>
+);
+```
+
+## Disabling Auto Scroll
+
+Pass `enabled: false` to turn off auto-scroll while keeping the ref attached:
+
+```tsx
+const { ref } = useAutoScroll([messages], { enabled: false });
+```
+
+## Smooth Scrolling
+
+By default the hook scrolls instantly (no animation) to avoid visual jitter during fast streaming. Switch to smooth scrolling if you prefer animated transitions:
+
+```tsx
+const { ref } = useAutoScroll([messages], { behavior: "smooth" });
+```
+
+## Next Steps
+
+- [useAutoScroll API Reference](/docs/react/use-auto-scroll) — full options and return values
+- [Markdown Rendering](/docs/react/markdown-rendering) — render streamed text as formatted markdown

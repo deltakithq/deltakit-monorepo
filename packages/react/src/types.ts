@@ -1,5 +1,5 @@
-import type { Dispatch, SetStateAction } from "react";
 import type { ContentPart, Message, SSEEvent } from "@deltakit/core";
+import type { Dispatch, RefObject, SetStateAction } from "react";
 
 export type { ContentPart, Message, SSEEvent };
 
@@ -9,14 +9,14 @@ export type { ContentPart, Message, SSEEvent };
 // ---------------------------------------------------------------------------
 
 export interface EventHelpers<TPart extends { type: string } = ContentPart> {
-  /** Append a text delta to the last text part of the current assistant message, or create a new text part. */
-  appendText: (delta: string) => void;
+	/** Append a text delta to the last text part of the current assistant message, or create a new text part. */
+	appendText: (delta: string) => void;
 
-  /** Append a new content part to the current assistant message. */
-  appendPart: (part: TPart) => void;
+	/** Append a new content part to the current assistant message. */
+	appendPart: (part: TPart) => void;
 
-  /** Direct access to the messages state setter for advanced use-cases. */
-  setMessages: Dispatch<SetStateAction<Message<TPart>[]>>;
+	/** Direct access to the messages state setter for advanced use-cases. */
+	setMessages: Dispatch<SetStateAction<Message<TPart>[]>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -24,61 +24,89 @@ export interface EventHelpers<TPart extends { type: string } = ContentPart> {
 // ---------------------------------------------------------------------------
 
 export interface UseStreamChatOptions<
-  TPart extends { type: string } = ContentPart,
-  TEvent extends { type: string } = SSEEvent,
+	TPart extends { type: string } = ContentPart,
+	TEvent extends { type: string } = SSEEvent,
 > {
-  /** SSE endpoint URL. */
-  api: string;
+	/** SSE endpoint URL. */
+	api: string;
 
-  /** Initial messages to prepopulate the chat (e.g. from a database or previous session). */
-  initialMessages?: Message<TPart>[];
+	/** Initial messages to prepopulate the chat (e.g. from a database or previous session). */
+	initialMessages?: Message<TPart>[];
 
-  /** Extra headers merged into every fetch request. */
-  headers?: Record<string, string>;
+	/** Extra headers merged into every fetch request. */
+	headers?: Record<string, string>;
 
-  /** Extra fields merged into the POST body alongside `message`. */
-  body?: Record<string, unknown>;
+	/** Extra fields merged into the POST body alongside `message`. */
+	body?: Record<string, unknown>;
 
-  /**
-   * Custom handler for each SSE event. When provided, this **replaces** the
-   * default `text_delta` handling — giving you full control over how events
-   * are mapped to message state.
-   *
-   * The `event` parameter is typed as `TEvent`, which defaults to `SSEEvent`.
-   * Pass a custom event union as the second generic to handle additional event types.
-   */
-  onEvent?: (event: TEvent, helpers: EventHelpers<TPart>) => void;
+	/**
+	 * Custom handler for each SSE event. When provided, this **replaces** the
+	 * default `text_delta` handling — giving you full control over how events
+	 * are mapped to message state.
+	 *
+	 * The `event` parameter is typed as `TEvent`, which defaults to `SSEEvent`.
+	 * Pass a custom event union as the second generic to handle additional event types.
+	 */
+	onEvent?: (event: TEvent, helpers: EventHelpers<TPart>) => void;
 
-  /** Called when the assistant message is complete (stream ended). */
-  onFinish?: (messages: Message<TPart>[]) => void;
+	/** Called when the assistant message is complete (stream ended). */
+	onFinish?: (messages: Message<TPart>[]) => void;
 
-  /** Called whenever a new complete message (user or assistant) is added. */
-  onMessage?: (message: Message<TPart>) => void;
+	/** Called whenever a new complete message (user or assistant) is added. */
+	onMessage?: (message: Message<TPart>) => void;
 
-  /** Called when a fetch or stream error occurs. */
-  onError?: (error: Error) => void;
+	/** Called when a fetch or stream error occurs. */
+	onError?: (error: Error) => void;
 }
 
 // ---------------------------------------------------------------------------
 // Hook Return
 // ---------------------------------------------------------------------------
 
-export interface UseStreamChatReturn<TPart extends { type: string } = ContentPart> {
-  /** Chronological list of messages in the conversation. */
-  messages: Message<TPart>[];
+export interface UseStreamChatReturn<
+	TPart extends { type: string } = ContentPart,
+> {
+	/** Chronological list of messages in the conversation. */
+	messages: Message<TPart>[];
 
-  /** `true` while the assistant is streaming a response. */
-  isLoading: boolean;
+	/** `true` while the assistant is streaming a response. */
+	isLoading: boolean;
 
-  /** The most recent error, or `null`. */
-  error: Error | null;
+	/** The most recent error, or `null`. */
+	error: Error | null;
 
-  /** Send a user message and begin streaming the assistant response. */
-  sendMessage: (text: string) => void;
+	/** Send a user message and begin streaming the assistant response. */
+	sendMessage: (text: string) => void;
 
-  /** Abort the current stream. */
-  stop: () => void;
+	/** Abort the current stream. */
+	stop: () => void;
 
-  /** Direct setter for programmatic message manipulation (clear, prepopulate, etc.). */
-  setMessages: Dispatch<SetStateAction<Message<TPart>[]>>;
+	/** Direct setter for programmatic message manipulation (clear, prepopulate, etc.). */
+	setMessages: Dispatch<SetStateAction<Message<TPart>[]>>;
+}
+
+// ---------------------------------------------------------------------------
+// useAutoScroll
+// ---------------------------------------------------------------------------
+
+export interface UseAutoScrollOptions {
+	/** Scroll behavior when auto-scrolling. Default: `"instant"`. */
+	behavior?: ScrollBehavior;
+
+	/** Whether auto-scroll is enabled. Default: `true`. */
+	enabled?: boolean;
+
+	/** Distance (px) from the bottom to consider "at bottom". Default: `50`. */
+	threshold?: number;
+}
+
+export interface UseAutoScrollReturn<T extends HTMLElement = HTMLDivElement> {
+	/** Attach this ref to your scrollable container element. */
+	ref: RefObject<T | null>;
+
+	/** Imperatively scroll to the bottom and re-pin auto-scroll. */
+	scrollToBottom: () => void;
+
+	/** Whether the scroll container is currently at/near the bottom. */
+	isAtBottom: boolean;
 }

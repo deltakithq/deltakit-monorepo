@@ -1,5 +1,9 @@
 import { StreamingMarkdown } from "@deltakit/markdown";
-import { fromOpenAiAgents, useStreamChat } from "@deltakit/react";
+import {
+	fromOpenAiAgents,
+	useAutoScroll,
+	useStreamChat,
+} from "@deltakit/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { ToolCall } from "../components/tool-call";
 
@@ -40,6 +44,8 @@ function Chat() {
 		},
 	);
 
+	const { ref, scrollToBottom, isAtBottom } = useAutoScroll([messages]);
+
 	const clearChat = async () => {
 		await fetch(`${API_URL}clear`, { method: "POST" });
 		setMessages([]);
@@ -47,7 +53,7 @@ function Chat() {
 
 	return (
 		<div className="flex h-screen flex-col">
-			<div className="flex-1 overflow-y-auto">
+			<div ref={ref} className="flex-1 overflow-y-auto">
 				<div className="mx-auto max-w-2xl p-4">
 					{messages.length > 0 && (
 						<div className="flex justify-end pb-2">
@@ -99,6 +105,18 @@ function Chat() {
 				</div>
 			</div>
 
+			{!isAtBottom && (
+				<div className="flex justify-center py-1">
+					<button
+						type="button"
+						onClick={scrollToBottom}
+						className="rounded-full bg-neutral-800 px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-700"
+					>
+						Scroll to bottom
+					</button>
+				</div>
+			)}
+
 			<div className="border-t border-neutral-800 bg-neutral-900">
 				<div className="mx-auto max-w-2xl p-4">
 					<form
@@ -110,6 +128,7 @@ function Chat() {
 							) as HTMLInputElement;
 							if (!input.value.trim()) return;
 							sendMessage(input.value);
+							scrollToBottom();
 							input.value = "";
 						}}
 					>

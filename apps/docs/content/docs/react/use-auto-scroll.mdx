@@ -1,0 +1,120 @@
+---
+title: useAutoScroll
+description: Hook that keeps a scroll container pinned to the bottom during streaming.
+---
+
+## Signature
+
+```ts
+function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
+  dependencies: unknown[],
+  options?: UseAutoScrollOptions,
+): UseAutoScrollReturn<T>;
+```
+
+## Parameters
+
+### `dependencies`
+
+**Type:** `unknown[]`
+
+Array of values to watch — auto-scroll triggers when these change. Typically `[messages]` from `useStreamChat`.
+
+```tsx
+const { messages } = useStreamChat({ api: "/api/chat" });
+const { ref } = useAutoScroll([messages]);
+```
+
+### `options`
+
+**Type:** `UseAutoScrollOptions` *(optional)*
+
+### `options.behavior`
+
+**Type:** `ScrollBehavior` — Default: `"instant"`
+
+The scroll behavior passed to `Element.scrollTo()`. Use `"instant"` (default) for streaming chat to avoid animation lag, or `"smooth"` for animated scrolling.
+
+```tsx
+const { ref } = useAutoScroll([messages], { behavior: "smooth" });
+```
+
+### `options.enabled`
+
+**Type:** `boolean` — Default: `true`
+
+Set to `false` to disable auto-scroll entirely. The ref remains attached but no scroll behavior is applied.
+
+```tsx
+const { ref } = useAutoScroll([messages], { enabled: false });
+```
+
+### `options.threshold`
+
+**Type:** `number` — Default: `50`
+
+Distance in pixels from the bottom within which the container is considered "at bottom". When the user scrolls up beyond this threshold, auto-scroll pauses. When they scroll back within it, auto-scroll re-engages.
+
+```tsx
+const { ref } = useAutoScroll([messages], { threshold: 100 });
+```
+
+## Return Value
+
+### `ref`
+
+**Type:** `RefObject<T | null>`
+
+Attach this to your scrollable container element. The container must have a fixed height and `overflow-y: auto` (or `scroll`) for scrolling to work.
+
+```tsx
+<div ref={ref} className="h-screen overflow-y-auto">
+  {/* scrollable content */}
+</div>
+```
+
+### `scrollToBottom`
+
+**Type:** `() => void`
+
+Imperatively scroll to the bottom and re-pin auto-scroll. Useful in form submit handlers to ensure the view follows the new response:
+
+```tsx
+const handleSubmit = (text: string) => {
+  sendMessage(text);
+  scrollToBottom();
+};
+```
+
+### `isAtBottom`
+
+**Type:** `boolean`
+
+Reactive value that is `true` when the scroll container is at or near the bottom (within `threshold`). Use this to conditionally render a "scroll to bottom" indicator:
+
+```tsx
+{!isAtBottom && (
+  <button onClick={scrollToBottom}>Scroll to bottom</button>
+)}
+```
+
+## Generic Type Parameter
+
+The generic `T` controls the type of the ref. It defaults to `HTMLDivElement` but can be narrowed to any `HTMLElement` subtype:
+
+```tsx
+const { ref } = useAutoScroll<HTMLUListElement>([messages]);
+
+return <ul ref={ref}>{/* items */}</ul>;
+```
+
+## Behavior
+
+| User action | Hook behavior |
+|---|---|
+| Initial render | Pinned to bottom |
+| Content streams in (pinned) | Stays at bottom |
+| User scrolls up | Auto-scroll pauses |
+| Content streams in (detached) | View stays where user left it |
+| User scrolls back near bottom | Auto-scroll re-engages |
+| `scrollToBottom()` called | Force-scrolls to bottom, re-pins |

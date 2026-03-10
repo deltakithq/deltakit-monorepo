@@ -6,6 +6,7 @@
 		"index",
 		"quick-start",
 		"---Guides---",
+		"auto-scroll",
 		"initial-messages",
 		"body-and-headers",
 		"authentication",
@@ -17,6 +18,7 @@
 		"custom-content-parts",
 		"---API References---",
 		"use-stream-chat",
+		"use-auto-scroll",
 		"event-helpers"
 	]
 }

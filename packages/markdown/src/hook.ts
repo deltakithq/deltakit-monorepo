@@ -1,5 +1,12 @@
 import type { ReactNode } from "react";
-import { createElement, useEffect, useMemo, useRef, useState } from "react";
+import {
+	createElement,
+	Fragment,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import {
 	extractBlockquoteContent,
 	extractCodeContent,
@@ -189,7 +196,7 @@ function renderList(
 		const inlineNodes = renderInlineTokens(parseInline(content), components);
 		items.push(
 			createElement(
-				"span",
+				Fragment,
 				{ key: `li-${items.length}` },
 				components.li({ children: inlineNodes }),
 			),
@@ -235,7 +242,7 @@ function renderTable(
 			const inlineNodes = renderInlineTokens(parseInline(cell), components);
 			const CellComponent = isHeader ? components.th : components.td;
 			return createElement(
-				"span",
+				Fragment,
 				{ key: `cell-${cellIdx}` },
 				CellComponent({ children: inlineNodes }),
 			);
@@ -243,7 +250,7 @@ function renderTable(
 
 		rows.push(
 			createElement(
-				"span",
+				Fragment,
 				{ key: `row-${rowIdx}` },
 				components.tr({ children: cellNodes }),
 			),
@@ -252,7 +259,7 @@ function renderTable(
 		if (isHeader) {
 			// Wrap header rows in thead
 			const thead = createElement(
-				"span",
+				Fragment,
 				{ key: "thead" },
 				components.thead({ children: rows.splice(0) }),
 			);
@@ -270,7 +277,7 @@ function renderTable(
 	if (bodyRows.length > 0) {
 		tableChildren.push(
 			createElement(
-				"span",
+				Fragment,
 				{ key: "tbody" },
 				components.tbody({ children: bodyRows }),
 			),
