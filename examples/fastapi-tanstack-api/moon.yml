@@ -13,7 +13,7 @@ tasks:
     command: 'echo'
     args: ['Python backend - no build step required']
     type: 'run'
-    outputs: null
+    outputs: []
 
   dev:
     command: 'uv'
