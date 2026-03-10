@@ -10,7 +10,7 @@ from sqlalchemy import text
 from src.core.engine import engine
 from src.modules.agents.models import llm_model
 from src.modules.agents.prompt import SYSTEM_PROMPT
-from src.modules.agents.tools import search_web
+from src.modules.agents.tools import crawl_website, extract_webpage, search_web
 from src.modules.chat.schema import ChatRequest
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -41,9 +41,11 @@ async def generate_answer(request: ChatRequest):
         "Assistant",
         instructions=SYSTEM_PROMPT,
         model=llm_model,
-        tools=[search_web],
+        tools=[search_web, crawl_website, extract_webpage],
     )
-    runner = Runner.run_streamed(agent, input=request.message, session=session)
+    runner = Runner.run_streamed(
+        agent, input=request.message, session=session, max_turns=30
+    )
 
     async def event_generator():
         async for event in runner.stream_events():
