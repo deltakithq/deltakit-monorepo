@@ -5,5 +5,5 @@ from src.core.settings import settings
 llm_model = LitellmModel(
     base_url=settings.OPENROUTER_BASE_URL,
     api_key=settings.OPENROUTER_API_KEY,
-    model="openrouter/openai/gpt-5.2",
+    model="openrouter/stepfun/step-3.5-flash",
 )
