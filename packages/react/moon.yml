@@ -2,7 +2,7 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 
 project:
   name: 'react'
-  type: 'library'
+  description: 'DeltaKit React components'
 
 stack: frontend
 language: typescript
@@ -24,6 +24,13 @@ tasks:
     command: 'pnpm'
     args: ['exec', 'tsup', '--watch']
     type: 'run'
+
+  check:
+    command: 'pnpm'
+    args: ['exec', 'biome', 'check', 'src/']
+    inputs:
+      - 'src/**/*'
+      - 'biome.json'
 
   test:
     command: 'echo'
