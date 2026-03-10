@@ -1,6 +1,6 @@
 {
 	"name": "@deltakit/react",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"description": "DeltaKit React Markdown for LLM Response",
 	"type": "module",
 	"license": "MIT",
