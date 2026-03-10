@@ -17,7 +17,7 @@ tasks:
       - 'tsup.config.ts'
       - 'tsconfig.json'
     outputs:
-      - 'dist'
+      - 'dist/**/*'
 
   dev:
     command: 'pnpm'

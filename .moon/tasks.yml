@@ -21,8 +21,8 @@ tasks:
       - '@globs(sources)'
       - '@globs(config)'
     outputs:
-      - 'dist'
-      - 'build'
+      - 'dist/**/*'
+      - 'build/**/*'
 
   dev:
     command: 'noop'

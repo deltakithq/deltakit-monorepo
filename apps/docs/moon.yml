@@ -27,7 +27,7 @@ tasks:
       - 'tsconfig.json'
       - 'source.config.ts'
     outputs:
-      - 'dist'
+      - 'dist/**/*'
 
   preview:
     command: 'pnpm'
