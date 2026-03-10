@@ -1,15 +1,15 @@
-export type {
-  TextPart,
-  ToolCallPart,
-  ReasoningPart,
-  ContentPart,
-  Message,
-  TextDeltaEvent,
-  ToolCallEvent,
-  ToolResultEvent,
-  SSEEvent,
-} from "./types";
+export { fromOpenAiAgents } from "./openai-converter";
 
 export { parseSSEStream } from "./sse-parser";
 
-export { fromOpenAiAgents } from "./openai-converter";
+export type {
+	ContentPart,
+	Message,
+	ReasoningPart,
+	SSEEvent,
+	TextDeltaEvent,
+	TextPart,
+	ToolCallEvent,
+	ToolCallPart,
+	ToolResultEvent,
+} from "./types";
