@@ -1,2 +1,13 @@
+#!/bin/sh
+
+# 1. Lint and format staged files
 npx lint-staged --verbose
+
+# 2. Stage any auto-fixed files
 git add -A
+
+# 3. Typecheck packages (catches type errors before CI)
+echo "Typechecking packages..."
+pnpm --filter @deltakit/core exec tsc --noEmit
+pnpm --filter @deltakit/react exec tsc --noEmit
+pnpm --filter @deltakit/markdown exec tsc --noEmit

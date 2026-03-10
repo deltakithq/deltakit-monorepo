@@ -14,7 +14,7 @@
 		"install:clean": "rm -rf node_modules pnpm-lock.yaml && pnpm install",
 		"changeset": "changeset",
 		"changeset:version": "changeset version",
-		"release": "pnpm build && changeset publish",
+		"release": "moon run core:build react:build markdown:build && changeset publish",
 		"prepare": "husky"
 	},
 	"devDependencies": {
@@ -27,7 +27,7 @@
 	},
 	"packageManager": "pnpm@9.15.0",
 	"engines": {
-		"node": ">=20.0.0",
+		"node": "22.12.0",
 		"pnpm": ">=9.0.0"
 	},
 	"lint-staged": {
