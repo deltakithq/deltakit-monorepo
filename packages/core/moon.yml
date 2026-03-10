@@ -22,7 +22,7 @@ tasks:
   dev:
     command: 'pnpm'
     args: ['exec', 'tsup', '--watch']
-    local: true
+    type: 'run'
 
   test:
     command: 'echo'
