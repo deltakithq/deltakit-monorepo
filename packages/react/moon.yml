@@ -39,6 +39,8 @@ tasks:
   typecheck:
     command: 'pnpm'
     args: ['exec', 'tsc', '--noEmit']
+    deps:
+      - 'core:build'
     inputs:
       - 'src/**/*'
       - 'tsconfig.json'
