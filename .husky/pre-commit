@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Skip hooks in CI (e.g. changesets bot commits)
+[ -n "$CI" ] && exit 0
+
 # 1. Lint and format staged files
 npx lint-staged --verbose
 
