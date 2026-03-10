@@ -1,6 +1,6 @@
 {
 	"name": "@deltakit/markdown",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"description": "Streaming markdown renderer for AI chat. No flicker. No broken syntax.",
 	"type": "module",
 	"license": "MIT",
