@@ -1,16 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { HomeLayout } from "fumadocs-ui/layouts/home";
-import { baseOptions } from "@/lib/layout.shared";
-import {
-	Zap,
-	Radio,
-	Wrench,
-	ShieldCheck,
-	Puzzle,
-	MessageSquare,
-	ArrowRight,
-} from "lucide-react";
 import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
+import { HomeLayout } from "fumadocs-ui/layouts/home";
+import {
+	ArrowRight,
+	MessageSquare,
+	Puzzle,
+	Radio,
+	ShieldCheck,
+	Wrench,
+	Zap,
+} from "lucide-react";
+import { baseOptions } from "@/lib/layout.shared";
 
 export const Route = createFileRoute("/")({
 	component: HomePage,
@@ -87,23 +87,15 @@ function HomePage() {
 			{/* Hero */}
 			<section className="flex flex-col items-center px-4 pt-20 pb-16 text-center">
 				<div className="flex flex-col items-center gap-6 max-w-3xl">
-					<img
-						src="/deltakit.png"
-						alt="DeltaKit"
-						width={56}
-						height={56}
-					/>
+					<img src="/deltakit.png" alt="DeltaKit" width={56} height={56} />
 					<h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl text-fd-foreground">
 						Build AI Chat Interfaces
 						<br />
-						<span className="text-fd-muted-foreground">
-							with Streaming SSE
-						</span>
+						<span className="text-fd-muted-foreground">with Streaming SSE</span>
 					</h1>
 					<p className="text-lg text-fd-muted-foreground max-w-xl">
-						A lightweight React toolkit for real-time AI chat.
-						Stream responses over Server-Sent Events from any
-						backend framework.
+						A lightweight React toolkit for real-time AI chat. Stream responses
+						over Server-Sent Events from any backend framework.
 					</p>
 					<div className="flex gap-3 mt-2">
 						<Link
@@ -133,13 +125,12 @@ function HomePage() {
 						<h2 className="text-3xl font-bold tracking-tight text-fd-foreground">
 							One hook. Complete streaming chat.
 						</h2>
-						<p className="text-fd-muted-foreground max-w-lg">
+						<p className="text-fd-muted-foreground max-w-xl">
 							<code className="rounded bg-fd-secondary px-1.5 py-0.5 text-sm font-mono text-fd-secondary-foreground">
 								useStreamChat
 							</code>{" "}
-							manages messages, network requests, SSE parsing,
-							cancellation, and real-time state updates — so you
-							can focus on your UI.
+							manages messages, network requests, SSE parsing, cancellation, and
+							real-time state updates — so you can focus on your UI.
 						</p>
 					</div>
 
@@ -194,9 +185,8 @@ function HomePage() {
 							Everything you need
 						</h2>
 						<p className="text-fd-muted-foreground max-w-lg">
-							From basic text streaming to custom tool calls and
-							typed event handling — all with a minimal API
-							surface.
+							From basic text streaming to custom tool calls and typed event
+							handling — all with a minimal API surface.
 						</p>
 					</div>
 

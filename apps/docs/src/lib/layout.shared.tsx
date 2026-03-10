@@ -1,5 +1,4 @@
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
-import { BookOpen } from "lucide-react";
 
 export function baseOptions(): BaseLayoutProps {
 	return {
@@ -11,13 +10,6 @@ export function baseOptions(): BaseLayoutProps {
 				</>
 			),
 		},
-		links: [
-			{
-				text: "Documentation",
-				url: "/docs/react",
-				icon: <BookOpen />,
-			},
-		],
 		githubUrl: "https://github.com/deltakithq/deltakit-monorepo",
 	};
 }

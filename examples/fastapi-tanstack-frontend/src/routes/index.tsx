@@ -72,21 +72,24 @@ function Chat() {
 								<p className="mb-1 text-xs font-semibold text-neutral-400">
 									{msg.role === "user" ? "You" : "Assistant"}
 								</p>
-							{msg.parts.map((part, partIndex) => {
-								switch (part.type) {
-									case "text":
-										return (
-											<div key={`text-${partIndex}`} className="prose prose-invert prose-sm max-w-none">
-												<Markdown>{part.text}</Markdown>
-											</div>
-										);
-								case "tool_call":
-									return (
-										<ToolCall
-											key={`tool_call-${partIndex}`}
-											argument={part.argument}
-										/>
-									);
+								{msg.parts.map((part, partIndex) => {
+									switch (part.type) {
+										case "text":
+											return (
+												<div
+													key={`text-${partIndex}`}
+													className="prose prose-invert prose-sm max-w-none"
+												>
+													<Markdown>{part.text}</Markdown>
+												</div>
+											);
+										case "tool_call":
+											return (
+												<ToolCall
+													key={`tool_call-${partIndex}`}
+													argument={part.argument}
+												/>
+											);
 										default:
 											return null;
 									}
