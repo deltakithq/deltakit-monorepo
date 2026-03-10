@@ -8,7 +8,7 @@ node:
   addEnginesConstraint: true
   dedupeOnLockfileChange: true
   syncProjectWorkspaceDependencies: true
-  syncVersionManagerConfig: 'prototools'
+
 
 typescript:
   createMissingConfig: true
