@@ -254,4 +254,166 @@ describe("parseIncremental", () => {
 			expect(result.blocks[0].type).toBe("list");
 		});
 	});
+
+	describe("streaming flicker prevention for block-level markers", () => {
+		it("should buffer heading marker with no text (e.g. '# ')", () => {
+			const result = parseIncremental("# ", { bufferIncomplete: true });
+			expect(result.blocks).toHaveLength(0);
+			expect(result.buffered).toBe("# ");
+		});
+
+		it("should buffer '## ' with no text", () => {
+			const result = parseIncremental("## ", { bufferIncomplete: true });
+			expect(result.blocks).toHaveLength(0);
+			expect(result.buffered).toBe("## ");
+		});
+
+		it("should buffer '### ' with no text", () => {
+			const result = parseIncremental("### ", { bufferIncomplete: true });
+			expect(result.blocks).toHaveLength(0);
+			expect(result.buffered).toBe("### ");
+		});
+
+		it("should buffer partial heading '#' without space", () => {
+			const result = parseIncremental("#", { bufferIncomplete: true });
+			expect(result.blocks).toHaveLength(0);
+			expect(result.buffered).toBe("#");
+		});
+
+		it("should buffer partial heading '##' without space", () => {
+			const result = parseIncremental("##", { bufferIncomplete: true });
+			expect(result.blocks).toHaveLength(0);
+			expect(result.buffered).toBe("##");
+		});
+
+		it("should render heading once text arrives after marker", () => {
+			const result = parseIncremental("# Hello", { bufferIncomplete: true });
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("heading");
+			expect(result.blocks[0].raw).toBe("# Hello");
+			expect(result.buffered).toBe("");
+		});
+
+		it("should buffer a lone list marker '- '", () => {
+			const result = parseIncremental("- ", { bufferIncomplete: true });
+			expect(result.blocks).toHaveLength(0);
+			expect(result.buffered).toBe("- ");
+		});
+
+		it("should buffer partial list marker '-' without space", () => {
+			const result = parseIncremental("-", { bufferIncomplete: true });
+			expect(result.blocks).toHaveLength(0);
+			expect(result.buffered).toBe("-");
+		});
+
+		it("should buffer partial list marker '*' without space", () => {
+			const result = parseIncremental("*", { bufferIncomplete: true });
+			expect(result.blocks).toHaveLength(0);
+			expect(result.buffered).toBe("*");
+		});
+
+		it("should buffer partial ordered list marker '1' or '1.'", () => {
+			const r1 = parseIncremental("1", { bufferIncomplete: true });
+			expect(r1.blocks).toHaveLength(0);
+			expect(r1.buffered).toBe("1");
+
+			const r2 = parseIncremental("1.", { bufferIncomplete: true });
+			expect(r2.blocks).toHaveLength(0);
+			expect(r2.buffered).toBe("1.");
+		});
+
+		it("should buffer '-' when it appears after completed list item", () => {
+			const result = parseIncremental("- item 1\n-", {
+				bufferIncomplete: true,
+			});
+			// Should render the first item, not show raw '-'
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("list");
+			expect(result.blocks[0].raw).toBe("- item 1");
+		});
+
+		it("should buffer trailing empty list item '- item 1\\n- '", () => {
+			const result = parseIncremental("- item 1\n- ", {
+				bufferIncomplete: true,
+			});
+			// Should render only the first item, not the empty second marker
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("list");
+			expect(result.blocks[0].raw).toBe("- item 1");
+		});
+
+		it("should render full list once second item has text", () => {
+			const result = parseIncremental("- item 1\n- item 2", {
+				bufferIncomplete: true,
+			});
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("list");
+			expect(result.blocks[0].raw).toBe("- item 1\n- item 2");
+		});
+
+		it("should buffer trailing empty ordered list item", () => {
+			const result = parseIncremental("1. first\n2. ", {
+				bufferIncomplete: true,
+			});
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("list");
+			expect(result.blocks[0].raw).toBe("1. first");
+		});
+
+		it("should buffer '#' appearing after a completed paragraph", () => {
+			const result = parseIncremental("some text\n\n#", {
+				bufferIncomplete: true,
+			});
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("paragraph");
+			expect(result.blocks[0].raw).toBe("some text");
+			expect(result.buffered).toBe("#");
+		});
+
+		it("should buffer '-' appearing after a completed paragraph", () => {
+			const result = parseIncremental("some text\n\n-", {
+				bufferIncomplete: true,
+			});
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("paragraph");
+			expect(result.blocks[0].raw).toBe("some text");
+			expect(result.buffered).toBe("-");
+		});
+
+		it("full streaming simulation: list items arrive token by token", () => {
+			const states = [
+				"-",
+				"- ",
+				"- i",
+				"- item 1",
+				"- item 1\n",
+				"- item 1\n-",
+				"- item 1\n- ",
+				"- item 1\n- i",
+				"- item 1\n- item 2",
+			];
+
+			for (const s of states) {
+				const r = parseIncremental(s, { bufferIncomplete: true });
+				// Should never render raw '-' as a paragraph
+				for (const b of r.blocks) {
+					if (b.type === "paragraph") {
+						expect(b.raw).not.toBe("-");
+					}
+				}
+				// Should never render an empty list item
+				if (r.blocks.length > 0 && r.blocks[0].type === "list") {
+					const lines = r.blocks[0].raw.split("\n");
+					for (const line of lines) {
+						if (line.trim().length > 0) {
+							const content = line
+								.replace(/^\s*[-*+]\s+/, "")
+								.replace(/^\s*\d+\.\s+/, "");
+							expect(content.trim().length).toBeGreaterThan(0);
+						}
+					}
+				}
+			}
+		});
+	});
 });

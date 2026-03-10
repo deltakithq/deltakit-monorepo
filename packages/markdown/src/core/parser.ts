@@ -47,6 +47,14 @@ export function parseIncremental(
 			case "IDLE": {
 				if (isBlankLine) continue;
 
+				// When bufferIncomplete is on and this is the last line,
+				// check if the line is a partial block marker that hasn't
+				// fully formed yet (e.g. "#", "-", "1.", "1").
+				// Buffer it to prevent flashing raw characters.
+				if (bufferIncomplete && isLastLine && isPartialBlockMarker(line)) {
+					return { blocks, buffered: line };
+				}
+
 				const detected = detectBlockType(line);
 				if (!detected) continue;
 
@@ -222,6 +230,10 @@ export function parseIncremental(
 					}
 				} else if (isListItem(line) || isContinuation(line)) {
 					currentRaw += `\n${line}`;
+				} else if (isLastLine && isPartialListMarker(line)) {
+					// Partial list marker on last line (e.g. "-", "1.", "1")
+					// Keep it attached to the list — it will likely become a full item
+					currentRaw += `\n${line}`;
 				} else {
 					// Non-list line ends the list
 					blocks.push(
@@ -273,6 +285,35 @@ export function parseIncremental(
 				}),
 			);
 		} else if (bufferIncomplete && !isPending) {
+			// --- Buffer block-level markers that have no content yet ---
+			// This prevents empty headings/list bullets from flashing during streaming.
+
+			if (state === "IN_HEADING") {
+				const headingContent = currentRaw.replace(/^#{1,6}\s*/, "");
+				if (headingContent.trim().length === 0) {
+					// Heading marker with no text yet (e.g. "# " or "## ") — buffer entirely
+					buffered = currentRaw;
+					return { blocks, buffered };
+				}
+			}
+
+			if (state === "IN_LIST") {
+				// Strip trailing partial/empty list markers from the raw content.
+				// e.g. "- item 1\n- " → render "- item 1", buffer "- "
+				// e.g. "- item 1\n-" → render "- item 1", buffer "-"
+				const strippedRaw = stripTrailingEmptyOrPartialListItem(currentRaw);
+				if (strippedRaw !== null) {
+					if (strippedRaw.safe.length > 0) {
+						// Render the list without the trailing empty/partial item
+						currentRaw = strippedRaw.safe;
+					} else {
+						// Only a marker (e.g. just "- " or "-") — buffer entirely
+						buffered = currentRaw;
+						return { blocks, buffered };
+					}
+				}
+			}
+
 			// Check for unclosed inline markers
 			const rawForInlineCheck =
 				state === "IN_HEADING"
@@ -373,6 +414,71 @@ function isListItem(line: string): boolean {
 /** Check if a line is a continuation of a list item (indented) */
 function isContinuation(line: string): boolean {
 	return /^\s{2,}/.test(line) && line.trim().length > 0;
+}
+
+/**
+ * Check if a line could be a partial block-level marker that hasn't
+ * fully formed yet. These would flash as raw text if rendered.
+ *
+ * Matches:
+ *   "#", "##", "###" etc. (heading without space/content)
+ *   "-", "*", "+" (list marker without space)
+ *   "1", "1.", "12", "12." etc. (ordered list partial)
+ *   "> " (blockquote marker-only, no content)
+ */
+function isPartialBlockMarker(line: string): boolean {
+	const trimmed = line.trim();
+	// Partial heading: just hashes, no space+content yet
+	if (/^#{1,6}$/.test(trimmed)) return true;
+	// Partial unordered list: just the marker char, no space
+	if (/^[-*+]$/.test(trimmed)) return true;
+	// Partial ordered list: digits, or digits+dot, no space
+	if (/^\d+\.?$/.test(trimmed)) return true;
+	return false;
+}
+
+/**
+ * Check if a line could be a partial list marker (not yet a full item).
+ * Used inside IN_LIST state to keep partial markers attached to the list
+ * instead of breaking them out as paragraphs.
+ *
+ * Matches: "-", "*", "+", "1", "1.", "12." etc.
+ */
+function isPartialListMarker(line: string): boolean {
+	const trimmed = line.trimStart();
+	if (/^[-*+]$/.test(trimmed)) return true;
+	if (/^\d+\.?$/.test(trimmed)) return true;
+	return false;
+}
+
+/**
+ * Check if the last line of a list block is an empty or partial list item marker.
+ * Empty: "- " or "1. " (marker with space but no content)
+ * Partial: "-" or "1." or "1" (marker not yet fully formed)
+ *
+ * If so, return the safe prefix (without the trailing marker) and the trailing part.
+ * Returns null if the last item has content.
+ */
+function stripTrailingEmptyOrPartialListItem(
+	raw: string,
+): { safe: string; trailing: string } | null {
+	const lines = raw.split("\n");
+	const lastLine = lines[lines.length - 1];
+	if (!lastLine) return null;
+
+	// Check if last line is a list marker with no content after it (e.g. "- " or "1. ")
+	const emptyMarkerMatch = lastLine.match(/^(\s*[-*+]\s+)$|^(\s*\d+\.\s+)$/);
+	// Check if last line is a partial marker (e.g. "-", "1.", "1")
+	const partialMarker = isPartialListMarker(lastLine);
+
+	if (!emptyMarkerMatch && !partialMarker) return null;
+
+	// Last line is marker-only or partial — strip it
+	const safeLines = lines.slice(0, -1);
+	return {
+		safe: safeLines.join("\n"),
+		trailing: lastLine,
+	};
 }
 
 /** Map parser state to block type */

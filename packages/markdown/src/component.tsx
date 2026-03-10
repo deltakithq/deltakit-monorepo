@@ -17,8 +17,20 @@ import { renderBlock } from "./hook.js";
 import { mergeComponents } from "./renderers/defaults.js";
 
 /**
+ * CSS styles for smooth opacity transition on streaming blocks.
+ * GPU-accelerated with will-change hint.
+ */
+const STREAMING_STYLES = `
+  .streaming-markdown-block {
+    transition: opacity 150ms ease-out;
+    will-change: opacity;
+  }
+`;
+
+/**
  * BlockRenderer — memoized block component.
  * When block.complete is true, this component never rerenders.
+ * Incomplete blocks get wrapped in a transition container for smooth opacity updates.
  */
 const BlockRenderer = memo(
 	function BlockRenderer({
@@ -28,7 +40,18 @@ const BlockRenderer = memo(
 		block: Block;
 		components: Required<ComponentOverrides>;
 	}): ReactNode {
-		return renderBlock(block, components);
+		const rendered = renderBlock(block, components);
+
+		// Apply opacity transition wrapper only to incomplete (streaming) blocks
+		if (!block.complete) {
+			return createElement(
+				"div",
+				{ className: "streaming-markdown-block" },
+				rendered,
+			);
+		}
+
+		return rendered;
 	},
 	(prev, next) => {
 		// If the previous block was complete, skip rerender
@@ -99,6 +122,9 @@ export function StreamingMarkdown({
 	return createElement(
 		"div",
 		{ className },
+		createElement("style", {
+			dangerouslySetInnerHTML: { __html: STREAMING_STYLES },
+		}),
 		parsed.blocks.map((block) =>
 			createElement(BlockRenderer, {
 				key: block.id,

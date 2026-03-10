@@ -18,15 +18,17 @@ This is the most objective comparison — no caveats needed.
 
 `react-markdown` is **9.3x larger** because it bundles the full unified/remark/rehype pipeline. `@deltakit/markdown` has zero runtime dependencies — the parser is built from scratch.
 
+> **Note on streaming stability:** `@deltakit/markdown` buffers partial block-level markers (e.g. `#`, `-`, `1.`) during streaming to prevent choppy rendering. Empty headings and list bullets never flash in the DOM.
+
 ## Render Performance
 
 Both libraries render the same markdown content via `renderToStaticMarkup`. Measured with vitest bench (tinybench).
 
 | Benchmark | @deltakit/markdown | react-markdown | Speedup |
 |-----------|-------------------|----------------|---------|
-| Short paragraph (~60 chars) | 145,000 ops/s | 26,000 ops/s | ~5.5x |
-| Mixed content (~1.2kb) | 5,500 ops/s | 1,150 ops/s | ~4.9x |
-| Streaming simulation (141 re-renders) | 77 ops/s | 17 ops/s | ~4.8x |
+| Short paragraph (~60 chars) | 133,000 ops/s | 21,000 ops/s | ~6.4x |
+| Mixed content (~1.2kb) | 5,600 ops/s | 984 ops/s | ~5.7x |
+| Streaming simulation (141 re-renders) | 80 ops/s | 15 ops/s | ~5.3x |
 
 ### Caveats
 
@@ -42,9 +44,9 @@ We also benchmark our parser (`parseIncremental`) against [micromark](https://gi
 
 | Benchmark | @deltakit/markdown | micromark | Speedup |
 |-----------|-------------------|-----------|---------|
-| Short paragraph | 3,985,000 ops/s | 28,000 ops/s | ~141x |
-| Mixed content (~1.2kb) | 312,000 ops/s | 1,427 ops/s | ~219x |
-| Streaming sim (141 parses) | 2,619 ops/s | 20 ops/s | ~128x |
+| Short paragraph | 4,047,000 ops/s | 24,000 ops/s | ~169x |
+| Mixed content (~1.2kb) | 317,000 ops/s | 1,260 ops/s | ~252x |
+| Streaming sim (141 parses) | 2,547 ops/s | 20 ops/s | ~125x |
 
 ### Caveats
 
