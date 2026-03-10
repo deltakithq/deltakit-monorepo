@@ -51,6 +51,9 @@ coverage/
 # Database
 *.sqlite3
 
+# Cloudflare
+.wrangler/
+
 # Misc
 *.tgz
 *.tar.gz
