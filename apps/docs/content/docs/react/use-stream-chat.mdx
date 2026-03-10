@@ -210,8 +210,8 @@ The hook accepts two type parameters for full type safety with custom content:
 useStreamChat<TPart, TEvent>(options)
 ```
 
-- **`TPart`** — Shape of content parts in messages. Defaults to `ContentPart`. Must have `{ type: string }`.
-- **`TEvent`** — Shape of SSE events from the server. Defaults to `SSEEvent`. Must have `{ type: string }`.
+- **`TPart`**. Shape of content parts in messages. Defaults to `ContentPart`. Must have `{ type: string }`.
+- **`TEvent`**. Shape of SSE events from the server. Defaults to `SSEEvent`. Must have `{ type: string }`.
 
 ```ts
 interface StatusPart {
@@ -230,7 +230,7 @@ const { messages } = useStreamChat<
 >({
   api: "/api/chat",
   onEvent: (event, helpers) => {
-    // event is SSEEvent | StatusEvent — fully typed
+    // event is SSEEvent | StatusEvent - fully typed
   },
 });
 // messages is Message<ContentPart | StatusPart>[]

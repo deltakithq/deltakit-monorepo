@@ -3,7 +3,7 @@ title: Custom Content Parts
 description: Define and render your own content part types.
 ---
 
-DeltaKit's built-in `ContentPart` union covers text, tool calls, and reasoning. When you need additional part types — images, status indicators, citations, or anything else — use the generic type parameter on `useStreamChat`.
+DeltaKit's built-in `ContentPart` union covers text, tool calls, and reasoning. When you need additional part types like images, status indicators, citations, or anything else, use the generic type parameter on `useStreamChat`.
 
 ## Defining Custom Parts
 
@@ -154,8 +154,8 @@ async def generate():
 
 Both generic parameters enforce type safety throughout:
 
-- **`TPart`** — Constrains `messages[n].parts[n]`, `appendPart(part)`, and `setMessages` operations.
-- **`TEvent`** — Constrains `event` in the `onEvent` callback, giving you autocomplete and exhaustive switch checking.
+- **`TPart`**. Constrains `messages[n].parts[n]`, `appendPart(part)`, and `setMessages` operations.
+- **`TEvent`**. Constrains `event` in the `onEvent` callback, giving you autocomplete and exhaustive switch checking.
 
 ```tsx
 useStreamChat<MyPart, MyEvent>({

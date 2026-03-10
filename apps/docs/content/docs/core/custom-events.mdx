@@ -13,7 +13,7 @@ Every SSE event is a `data:` line containing a JSON object with a `type` field:
 data: {"type":"your_event_type","key":"value"}
 ```
 
-DeltaKit's `parseSSEStream` yields each parsed JSON object as-is. There is no validation — any valid JSON with a `type` field works.
+DeltaKit's `parseSSEStream` yields each parsed JSON object as-is. There is no validation. Any valid JSON with a `type` field works.
 
 ## Built-in Event Types
 
@@ -84,7 +84,7 @@ async def chat(request: dict):
 
 ## Stream Termination
 
-The stream ends when the server sends `data: [DONE]`. This is not JSON — it's a special sentinel that `parseSSEStream` recognizes to stop iteration.
+The stream ends when the server sends `data: [DONE]`. This is not JSON. It's a special sentinel that `parseSSEStream` recognizes to stop iteration.
 
 ```
 data: [DONE]

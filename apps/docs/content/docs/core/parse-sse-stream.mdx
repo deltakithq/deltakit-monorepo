@@ -6,7 +6,7 @@ description: Async generator that parses Server-Sent Events from a ReadableStrea
 `parseSSEStream` converts a raw `ReadableStream<Uint8Array>` (from `fetch`) into an async generator of parsed JSON events.
 
 ```ts
-import { parseSSEStream } from "@deltakit/react";
+import { parseSSEStream } from "@deltakit/core";
 ```
 
 ## Signature
@@ -61,11 +61,11 @@ Each `data:` line must contain valid JSON (except `[DONE]`). Lines are separated
 
 ## Behavior
 
-- **Buffering** — Handles partial chunks split across multiple `read()` calls.
-- **Malformed JSON** — Skips invalid JSON lines silently (does not throw).
-- **Non-data lines** — Ignores `event:`, `id:`, `retry:`, and comment lines.
-- **`[DONE]`** — Recognized as a termination signal. The generator returns.
-- **Abort** — If `signal` is aborted, the generator stops on the next iteration.
+- **Buffering**. Handles partial chunks split across multiple `read()` calls.
+- **Malformed JSON**. Skips invalid JSON lines silently (does not throw).
+- **Non-data lines**. Ignores `event:`, `id:`, `retry:`, and comment lines.
+- **`[DONE]`**. Recognized as a termination signal. The generator returns.
+- **Abort**. If `signal` is aborted, the generator stops on the next iteration.
 
 ## Cancellation
 
@@ -99,7 +99,7 @@ try {
   }
 } catch (err) {
   if (err instanceof DOMException && err.name === "AbortError") {
-    // Stream was cancelled — expected
+    // Stream was cancelled - expected
   } else {
     // Actual stream error
     console.error("Stream error:", err);
@@ -109,6 +109,6 @@ try {
 
 ## Notes
 
-- You typically don't need to use `parseSSEStream` directly. The `useStreamChat` hook calls it internally.
-- It is useful when building non-React integrations or when you need direct control over the stream outside of the hook.
+- If using React, the `useStreamChat` hook from `@deltakit/react` calls `parseSSEStream` internally, so you don't need to use it directly.
+- `parseSSEStream` is useful when building non-React integrations or when you need direct control over the stream.
 - The reader lock is always released in the `finally` block, even on errors or cancellation.

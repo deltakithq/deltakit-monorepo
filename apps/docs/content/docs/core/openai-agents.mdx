@@ -1,13 +1,13 @@
 ---
 title: OpenAI Agents History
-description: Load conversation history from OpenAI Agents SDK.
+description: Convert conversation history from OpenAI Agents SDK to DeltaKit messages.
 ---
 
 If your backend uses the [OpenAI Agents SDK](https://github.com/openai/openai-agents-python), you can convert agent run history into DeltaKit messages using `fromOpenAiAgents`.
 
 ## The Problem
 
-The OpenAI Agents SDK stores conversation history as `TResponseInputItem` — a list of 28+ item types including messages, tool calls, tool outputs, reasoning, and internal control items. This format is not directly usable in a chat UI.
+The OpenAI Agents SDK stores conversation history as `TResponseInputItem`, a list of 28+ item types including messages, tool calls, tool outputs, reasoning, and internal control items. This format is not directly usable in a chat UI.
 
 `fromOpenAiAgents` converts these items into a clean `Message<ContentPart>[]` array.
 
@@ -27,57 +27,20 @@ async def get_history(session_id: str):
     return result.to_input_list()
 ```
 
-## Client Usage
+## Usage
 
-```tsx
-import { useStreamChat, fromOpenAiAgents } from "@deltakit/react";
-import type { Message } from "@deltakit/react";
-import { useState, useEffect } from "react";
+```ts
+import { fromOpenAiAgents } from "@deltakit/core";
 
-function Chat({ sessionId }: { sessionId: string }) {
-  const [initialMessages, setInitialMessages] = useState<Message[]>([]);
-  const [ready, setReady] = useState(false);
+// Load history from your API
+const history = await fetch("/api/chat/history/session_123").then((r) => r.json());
 
-  useEffect(() => {
-    fetch(`/api/chat/history/${sessionId}`)
-      .then((r) => r.json())
-      .then((items) => {
-        const messages = fromOpenAiAgents(items);
-        setInitialMessages(messages);
-        setReady(true);
-      });
-  }, [sessionId]);
-
-  const { messages, sendMessage, isLoading } = useStreamChat({
-    api: "/api/chat",
-    initialMessages,
-    body: { sessionId },
-  });
-
-  if (!ready) return <div>Loading history...</div>;
-
-  return (
-    <div>
-      {messages.map((msg) => (
-        <div key={msg.id}>
-          <strong>{msg.role}:</strong>{" "}
-          {msg.parts
-            .filter((p) => p.type === "text")
-            .map((p) => p.text)
-            .join("")}
-        </div>
-      ))}
-
-      <button
-        onClick={() => sendMessage("Continue our conversation")}
-        disabled={isLoading}
-      >
-        Send
-      </button>
-    </div>
-  );
-}
+// Convert to DeltaKit messages
+const messages = fromOpenAiAgents(history);
+// => Message<ContentPart>[]
 ```
+
+For using converted messages with the React hook, see [Initial Messages](/docs/react/initial-messages).
 
 ## What Gets Converted
 

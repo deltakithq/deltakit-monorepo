@@ -120,4 +120,4 @@ onEvent: (event, { appendText, appendPart, setMessages }) => {
 
 - `appendText` and `appendPart` only operate on the **last** message in the array, and only if its `role` is `"assistant"`.
 - All three methods trigger React state updates and re-renders.
-- The helpers are stable references (created with `useCallback`) — they won't cause unnecessary re-renders when passed as dependencies.
+- The helpers are stable references (created with `useCallback`), so they won't cause unnecessary re-renders when passed as dependencies.

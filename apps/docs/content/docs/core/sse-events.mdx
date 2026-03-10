@@ -6,7 +6,7 @@ description: Server-Sent Event types used by the streaming protocol.
 SSE events are the wire format between your server and DeltaKit. Each event is a JSON object with a `type` field, sent as a `data:` line in the SSE stream.
 
 ```ts
-import type { SSEEvent, TextDeltaEvent, ToolCallEvent, ToolResultEvent } from "@deltakit/react";
+import type { SSEEvent, TextDeltaEvent, ToolCallEvent, ToolResultEvent } from "@deltakit/core";
 ```
 
 ## SSEEvent
@@ -34,7 +34,7 @@ interface TextDeltaEvent {
 data: {"type":"text_delta","delta":"Hello"}
 ```
 
-The default event handler in `useStreamChat` only processes `text_delta` events. All other event types require a custom `onEvent` handler.
+When using `@deltakit/react`, the default event handler in `useStreamChat` only processes `text_delta` events. All other event types require a custom `onEvent` handler. See [Custom Event Handling](/docs/react/custom-event-handling).
 
 ## ToolCallEvent
 
@@ -92,11 +92,11 @@ The stream ends with the `[DONE]` sentinel:
 data: [DONE]
 ```
 
-This is not a JSON event — `parseSSEStream` recognizes it as a termination signal and stops the generator.
+This is not a JSON event. `parseSSEStream` recognizes it as a termination signal and stops the generator.
 
 ## Custom Event Types
 
-You can define your own event types and pass them as the second generic to `useStreamChat`:
+You can define your own event types alongside the built-in ones:
 
 ```ts
 interface ProgressEvent {
@@ -106,21 +106,31 @@ interface ProgressEvent {
 }
 
 type MyEvent = SSEEvent | ProgressEvent;
+```
 
-useStreamChat<ContentPart, MyEvent>({
-  api: "/api/chat",
-  onEvent: (event, { appendText }) => {
+Your server can send any JSON as a `data:` line. `parseSSEStream` will yield it. Use a union type to handle all cases:
+
+```ts
+import { parseSSEStream } from "@deltakit/core";
+
+const response = await fetch("/api/chat", {
+  method: "POST",
+  body: JSON.stringify({ message: "Hello" }),
+});
+
+if (response.body) {
+  for await (const event of parseSSEStream(response.body) as AsyncGenerator<MyEvent>) {
     switch (event.type) {
       case "text_delta":
-        appendText(event.delta);
+        process.stdout.write(event.delta);
         break;
       case "progress":
         // event.step and event.percent are typed
         console.log(`${event.step}: ${event.percent}%`);
         break;
     }
-  },
-});
+  }
+}
 ```
 
-Your server can send any JSON as a `data:` line — `parseSSEStream` will yield it. The type system ensures your `onEvent` handler covers all cases.
+For handling custom events in React, see [Custom Event Handling](/docs/react/custom-event-handling).

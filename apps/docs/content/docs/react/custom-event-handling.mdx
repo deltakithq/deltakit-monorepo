@@ -3,7 +3,7 @@ title: Custom Event Handling
 description: Handle custom SSE events beyond the default text_delta.
 ---
 
-By default, `useStreamChat` only handles `text_delta` events — all other event types are silently ignored. To handle tool calls, reasoning, progress indicators, or any custom data, provide an `onEvent` callback.
+By default, `useStreamChat` only handles `text_delta` events. All other event types are silently ignored. To handle tool calls, reasoning, progress indicators, or any custom data, provide an `onEvent` callback.
 
 ## Replacing the Default Handler
 
@@ -27,9 +27,9 @@ useStreamChat({
 
 The second argument to `onEvent` is an [EventHelpers](/docs/react/event-helpers) object with three methods:
 
-- **`appendText(delta)`** — Append text to the last `TextPart` of the current assistant message.
-- **`appendPart(part)`** — Push a new content part onto the current assistant message.
-- **`setMessages(updater)`** — Direct React state setter for advanced mutations.
+- **`appendText(delta)`**. Append text to the last `TextPart` of the current assistant message.
+- **`appendPart(part)`**. Push a new content part onto the current assistant message.
+- **`setMessages(updater)`**. Direct React state setter for advanced mutations.
 
 ## Handling Tool Calls
 
@@ -168,4 +168,4 @@ async def generate():
     yield 'data: [DONE]\n\n'
 ```
 
-There is no restriction on event types — any valid JSON with a `type` field works. See [SSE Events](/docs/core/sse-events) for the built-in event types and wire format.
+There is no restriction on event types. Any valid JSON with a `type` field works. See [SSE Events](/docs/core/sse-events) for the built-in event types and wire format.

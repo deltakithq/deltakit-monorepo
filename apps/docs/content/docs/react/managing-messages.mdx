@@ -112,9 +112,9 @@ addNotice("The model has been switched to GPT-4.");
 `setMessages` supports functional updates just like React's `useState`. Always use the functional form when your update depends on the current state:
 
 ```tsx
-// Correct — uses the latest state
+// Correct - uses the latest state
 setMessages((prev) => prev.filter((msg) => msg.id !== id));
 
-// Avoid — may use stale state
+// Avoid - may use stale state
 setMessages(messages.filter((msg) => msg.id !== id));
 ```

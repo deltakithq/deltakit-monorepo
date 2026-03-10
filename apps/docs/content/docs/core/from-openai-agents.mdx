@@ -3,10 +3,10 @@ title: fromOpenAiAgents
 description: Convert OpenAI Agents SDK history items to DeltaKit messages.
 ---
 
-`fromOpenAiAgents` converts raw OpenAI Agents SDK response items into DeltaKit's `Message<ContentPart>[]` format. Use it to load conversation history from agent runs into `useStreamChat`.
+`fromOpenAiAgents` converts raw OpenAI Agents SDK response items into DeltaKit's `Message<ContentPart>[]` format.
 
 ```ts
-import { fromOpenAiAgents } from "@deltakit/react";
+import { fromOpenAiAgents } from "@deltakit/core";
 ```
 
 ## Signature
@@ -29,15 +29,12 @@ Returns an array of `Message<ContentPart>` in chronological order.
 // Load history from your API
 const history = await fetch("/api/chat/history").then((r) => r.json());
 
-// Convert to DeltaKit format
+// Convert to DeltaKit messages
 const messages = fromOpenAiAgents(history);
-
-// Use as initial messages
-const chat = useStreamChat({
-  api: "/api/chat",
-  initialMessages: messages,
-});
+// => Message<ContentPart>[]
 ```
+
+For using converted messages with the React hook, see [Initial Messages](/docs/react/initial-messages).
 
 ## Supported Item Types
 
@@ -89,35 +86,13 @@ Tool outputs are matched to their corresponding `ToolCallPart` by `callId`:
 | `mcp_list_tools`, `mcp_approval_request`, `mcp_approval_response` | Silently filtered out |
 | `compaction`, `item_reference`, `tool_search_call`, `tool_search_output` | Silently filtered out |
 
-## Example with FastAPI Backend
+## Server Example (FastAPI)
 
 ```python
-# Server: return agent history
 @app.get("/api/chat/history/{session_id}")
 async def get_history(session_id: str):
     result = await agent.run(session_id=session_id)
     return result.to_input_list()
-```
-
-```tsx
-// Client: load and display
-function ChatWithHistory({ sessionId }: { sessionId: string }) {
-  const [initialMessages, setInitialMessages] = useState<Message[]>([]);
-
-  useEffect(() => {
-    fetch(`/api/chat/history/${sessionId}`)
-      .then((r) => r.json())
-      .then((items) => setInitialMessages(fromOpenAiAgents(items)));
-  }, [sessionId]);
-
-  const chat = useStreamChat({
-    api: "/api/chat",
-    initialMessages,
-    body: { sessionId },
-  });
-
-  // render chat UI...
-}
 ```
 
 ## Notes

@@ -27,7 +27,7 @@ function Chat() {
 
 ### Dynamic Body Values
 
-For values that change over time, pass the current value directly — the hook reads `body` on each `sendMessage` call:
+For values that change over time, pass the current value directly. The hook reads `body` on each `sendMessage` call:
 
 ```tsx
 function Chat({ sessionId }: { sessionId: string }) {

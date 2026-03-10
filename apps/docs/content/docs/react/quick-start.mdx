@@ -65,23 +65,23 @@ function Chat() {
 }
 ```
 
-The `useStreamChat` hook handles the entire streaming lifecycle — it sends the message to your API, parses the SSE stream, and updates `messages` in real time.
+The `useStreamChat` hook handles the entire streaming lifecycle. It sends the message to your API, parses the SSE stream, and updates `messages` in real time.
 
 ## What You Get Back
 
 ```tsx
 const {
-  messages,    // Message[] — live-updating conversation
-  isLoading,   // boolean — true while streaming
-  error,       // Error | null — latest error
-  sendMessage, // (text: string) => void — send and stream
-  stop,        // () => void — abort current stream
+  messages,    // Message[] - live-updating conversation
+  isLoading,   // boolean - true while streaming
+  error,       // Error | null - latest error
+  sendMessage, // (text: string) => void - send and stream
+  stop,        // () => void - abort current stream
   setMessages, // React state setter for direct control
 } = useStreamChat({ api: "/api/chat" });
 ```
 
 ## Next Steps
 
-- [useStreamChat](/docs/react/use-stream-chat) — Full hook API reference
-- [EventHelpers](/docs/react/event-helpers) — Helper methods for custom event handling
-- [Custom Events](/docs/core/custom-events) — Handle tool calls and beyond
+- [useStreamChat](/docs/react/use-stream-chat): Full hook API reference
+- [EventHelpers](/docs/react/event-helpers): Helper methods for custom event handling
+- [Custom Events](/docs/core/custom-events): Handle tool calls and beyond
