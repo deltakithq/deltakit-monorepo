@@ -1,8 +1,8 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
-import { DocsLayout } from "fumadocs-ui/layouts/docs";
-import { createServerFn } from "@tanstack/react-start";
-import { source } from "@/lib/source";
 import browserCollections from "fumadocs-mdx:collections/browser";
+import { createFileRoute, notFound } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
+import { useFumadocsLoader } from "fumadocs-core/source/client";
+import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import {
 	DocsBody,
 	DocsDescription,
@@ -10,9 +10,9 @@ import {
 	DocsTitle,
 } from "fumadocs-ui/layouts/docs/page";
 import defaultMdxComponents from "fumadocs-ui/mdx";
-import { baseOptions } from "@/lib/layout.shared";
-import { useFumadocsLoader } from "fumadocs-core/source/client";
 import { Suspense } from "react";
+import { baseOptions } from "@/lib/layout.shared";
+import { source } from "@/lib/source";
 
 export const Route = createFileRoute("/docs/$")({
 	component: Page,
@@ -39,10 +39,7 @@ const serverLoader = createServerFn({
 	});
 
 const clientLoader = browserCollections.docs.createClientLoader({
-	component(
-		{ toc, frontmatter, default: MDX },
-		_props: undefined,
-	) {
+	component({ toc, frontmatter, default: MDX }, _props: undefined) {
 		return (
 			<DocsPage toc={toc}>
 				<DocsTitle>{frontmatter.title}</DocsTitle>

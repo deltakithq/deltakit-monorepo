@@ -9,6 +9,11 @@ stack: backend
 language: python
 
 tasks:
+  build:
+    command: 'echo'
+    args: ['Python backend - no build step required']
+    type: 'run'
+
   dev:
     command: 'uv'
     args: ['run', 'uvicorn', 'src.main:app', '--reload', '--port', '8000']

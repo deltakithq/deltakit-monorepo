@@ -14,17 +14,25 @@
 		"install:clean": "rm -rf node_modules pnpm-lock.yaml && pnpm install",
 		"changeset": "changeset",
 		"changeset:version": "changeset version",
-		"release": "pnpm build && changeset publish"
+		"release": "pnpm build && changeset publish",
+		"prepare": "husky"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.6",
 		"@changesets/cli": "^2.27.10",
 		"@moonrepo/cli": "^1.32.8",
+		"husky": "9.1.7",
+		"lint-staged": "16.3.3",
 		"typescript": "^5.7.2"
 	},
 	"packageManager": "pnpm@9.15.0",
 	"engines": {
 		"node": ">=20.0.0",
 		"pnpm": ">=9.0.0"
+	},
+	"lint-staged": {
+		"*.{js,jsx,ts,tsx,json,jsonc,css,md,yml,yaml}": [
+			"biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"
+		]
 	}
 }

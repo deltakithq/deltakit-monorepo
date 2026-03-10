@@ -11,61 +11,61 @@ import type { SSEEvent } from "./types";
  * @param signal  — optional `AbortSignal` for cancellation.
  */
 export async function* parseSSEStream(
-  stream: ReadableStream<Uint8Array>,
-  signal?: AbortSignal,
+	stream: ReadableStream<Uint8Array>,
+	signal?: AbortSignal,
 ): AsyncGenerator<SSEEvent> {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
+	const reader = stream.getReader();
+	const decoder = new TextDecoder();
+	let buffer = "";
 
-  try {
-    while (true) {
-      if (signal?.aborted) {
-        break;
-      }
+	try {
+		while (true) {
+			if (signal?.aborted) {
+				break;
+			}
 
-      const { done, value } = await reader.read();
+			const { done, value } = await reader.read();
 
-      if (done) {
-        break;
-      }
+			if (done) {
+				break;
+			}
 
-      // Append the decoded chunk to our buffer.
-      buffer += decoder.decode(value, { stream: true });
+			// Append the decoded chunk to our buffer.
+			buffer += decoder.decode(value, { stream: true });
 
-      // SSE events are separated by double newlines.
-      const parts = buffer.split("\n\n");
+			// SSE events are separated by double newlines.
+			const parts = buffer.split("\n\n");
 
-      // The last element is either empty (complete event) or a partial
-      // chunk that hasn't been fully received yet — keep it in the buffer.
-      buffer = parts.pop() ?? "";
+			// The last element is either empty (complete event) or a partial
+			// chunk that hasn't been fully received yet — keep it in the buffer.
+			buffer = parts.pop() ?? "";
 
-      for (const part of parts) {
-        const lines = part.split("\n");
+			for (const part of parts) {
+				const lines = part.split("\n");
 
-        for (const line of lines) {
-          // Only process `data:` lines; ignore comments, event:, id:, etc.
-          if (!line.startsWith("data:")) {
-            continue;
-          }
+				for (const line of lines) {
+					// Only process `data:` lines; ignore comments, event:, id:, etc.
+					if (!line.startsWith("data:")) {
+						continue;
+					}
 
-          const payload = line.slice("data:".length).trim();
+					const payload = line.slice("data:".length).trim();
 
-          // The spec uses `data: [DONE]` as a sentinel in some implementations.
-          if (payload === "[DONE]") {
-            return;
-          }
+					// The spec uses `data: [DONE]` as a sentinel in some implementations.
+					if (payload === "[DONE]") {
+						return;
+					}
 
-          try {
-            const event = JSON.parse(payload) as SSEEvent;
-            yield event;
-          } catch {
-            // Skip malformed JSON lines — don't blow up the stream.
-          }
-        }
-      }
-    }
-  } finally {
-    reader.releaseLock();
-  }
+					try {
+						const event = JSON.parse(payload) as SSEEvent;
+						yield event;
+					} catch {
+						// Skip malformed JSON lines — don't blow up the stream.
+					}
+				}
+			}
+		}
+	} finally {
+		reader.releaseLock();
+	}
 }
