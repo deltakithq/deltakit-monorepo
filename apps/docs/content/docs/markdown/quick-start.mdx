@@ -1,0 +1,103 @@
+---
+title: Quick Start
+description: Install @deltakit/markdown and render streaming markdown in minutes.
+icon: Rocket
+---
+
+This guide walks you through installing `@deltakit/markdown` and rendering AI-streamed markdown with zero flicker.
+
+## Install
+
+```bash tab="pnpm"
+pnpm add @deltakit/markdown
+```
+
+```bash tab="npm"
+npm install @deltakit/markdown
+```
+
+```bash tab="yarn"
+yarn add @deltakit/markdown
+```
+
+## Render Streaming Markdown
+
+Pass the streaming text to the `content` prop. As tokens arrive and `content` grows, only the active block re-renders.
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+import { StreamingMarkdown } from "@deltakit/markdown";
+
+function Chat() {
+  const { messages, sendMessage } = useStreamChat({
+    api: "/api/chat",
+  });
+
+  return (
+    <div>
+      {messages.map((msg) => (
+        <div key={msg.id}>
+          <strong>{msg.role}:</strong>
+          {msg.parts
+            .filter((p) => p.type === "text")
+            .map((p, i) => (
+              <div key={i} className="prose prose-sm max-w-none dark:prose-invert">
+                <StreamingMarkdown content={p.text} />
+              </div>
+            ))}
+        </div>
+      ))}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const input = e.currentTarget.elements.namedItem("msg") as HTMLInputElement;
+          sendMessage(input.value);
+          input.value = "";
+        }}
+      >
+        <input name="msg" placeholder="Type a message..." />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  );
+}
+```
+
+## Tune Render Batching
+
+The `batchMs` prop controls how often the DOM updates during streaming. Lower values feel smoother but use more CPU.
+
+```tsx
+<StreamingMarkdown content={text} batchMs={16} />  // 60fps (default)
+<StreamingMarkdown content={text} batchMs={8} />   // 120fps, very smooth
+<StreamingMarkdown content={text} batchMs={32} />  // 30fps, lighter on CPU
+<StreamingMarkdown content={text} batchMs={0} />   // Every token, no debounce
+```
+
+## Add Custom Code Block Rendering
+
+Override the `code` renderer to integrate a syntax highlighter:
+
+```tsx
+import { StreamingMarkdown } from "@deltakit/markdown";
+
+<StreamingMarkdown
+  content={text}
+  components={{
+    code({ language, children, inline }) {
+      if (inline) return <code className="bg-gray-100 px-1 rounded">{children}</code>;
+      return (
+        <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
+          <code>{children}</code>
+        </pre>
+      );
+    },
+  }}
+/>
+```
+
+## Next Steps
+
+- [StreamingMarkdown Guide](/docs/markdown/streaming-markdown): How block-level rendering works under the hood
+- [Custom Components](/docs/markdown/custom-components): Override any element renderer
+- [Buffering](/docs/markdown/buffering): How incomplete syntax is handled during streaming

@@ -1,0 +1,122 @@
+---
+title: Migration from react-markdown
+description: Side-by-side comparison and migration guide from react-markdown.
+---
+
+`react-markdown` is an excellent, mature library with full CommonMark compliance, a rich plugin ecosystem, and broad community adoption. If you're rendering static markdown content, it's the right choice.
+
+`@deltakit/markdown` is purpose-built for one specific use case: rendering AI-streamed markdown without flicker. It trades CommonMark completeness and plugin support for streaming optimizations like block memoization and incomplete syntax buffering.
+
+## Side-by-Side
+
+```tsx
+// Before (react-markdown)
+import Markdown from "react-markdown";
+
+<Markdown components={components}>{content}</Markdown>
+
+// After (@deltakit/markdown)
+import { StreamingMarkdown } from "@deltakit/markdown";
+
+<StreamingMarkdown components={components} content={content} />
+```
+
+## What Changes
+
+| Aspect | react-markdown | @deltakit/markdown |
+|--------|---------------|-------------------|
+| Content prop | `children` (JSX children) | `content` (explicit prop) |
+| Plugins | `remarkPlugins`, `rehypePlugins` | None (no plugin system) |
+| HTML passthrough | `rehypeRaw` support | Not supported |
+| Streaming props | None | `batchMs`, `bufferIncomplete` |
+| Headless hook | Not available | `useStreamingMarkdown` |
+| Core parser | Not exposed | `parseIncremental` from `@deltakit/markdown/core` |
+
+## What Stays the Same
+
+The `components` prop uses the same interface. Component overrides written for `react-markdown` work with `@deltakit/markdown` without changes:
+
+```tsx
+// This works with both libraries
+const components = {
+  code({ language, children, inline }) {
+    if (inline) return <code>{children}</code>;
+    return <pre><code className={`language-${language}`}>{children}</code></pre>;
+  },
+  a({ href, children }) {
+    return <a href={href} target="_blank" rel="noopener">{children}</a>;
+  },
+};
+```
+
+## Feature Comparison
+
+### Features both libraries support
+
+- Headings (h1-h6)
+- Paragraphs
+- Bold (`**text**`, `__text__`)
+- Italic (`*text*`, `_text_`)
+- Inline code (`` `code` ``)
+- Fenced code blocks (`` ``` ``)
+- Links (`[text](url)`)
+- Images (`![alt](src)`)
+- Unordered and ordered lists
+- Blockquotes
+- Horizontal rules
+
+### Features only react-markdown supports
+
+- Full CommonMark specification compliance
+- Nested blockquotes
+- Reference links (`[text][id]`)
+- HTML entities (`&amp;`, `&mdash;`, etc.)
+- Escape sequences (`\*not italic\*`)
+- remark and rehype plugin ecosystem
+- HTML passthrough via `rehypeRaw`
+- Server-side rendering (SSR) optimizations
+
+### Features only @deltakit/markdown supports
+
+- Block-level `React.memo` — completed blocks never re-render
+- Incomplete syntax buffering — no raw `**`, `` ` ``, or `[` visible during streaming
+- Code block skeleton rendering — pending code blocks show as empty shells, not broken paragraphs
+- Render batching via `batchMs` — debounce DOM updates at configurable frame rates
+- Headless hook (`useStreamingMarkdown`) for custom rendering
+- Framework-agnostic parser (`parseIncremental`) for non-React usage
+- Zero runtime dependencies
+
+## Performance
+
+In benchmarks against react-markdown and micromark (the parser engine react-markdown uses internally):
+
+| Benchmark | Result |
+|-----------|--------|
+| Static render (short paragraph) | ~5.5x faster |
+| Static render (mixed content) | ~4.9x faster |
+| Streaming simulation (141 re-renders) | ~4.8x faster |
+| Bundle size (minified + gzipped) | 3.8kb vs 35.3kb (9.3x smaller) |
+
+**Important caveats:**
+
+- `@deltakit/markdown` produces simpler HTML output (extra wrapper `<div>`/`<span>` tags, no nested `<p>` in blockquotes). Less work naturally means faster rendering.
+- react-markdown runs a full CommonMark-compliant pipeline. We run a simplified parser. Comparing speed when we do less work is expected, not remarkable.
+- The static render benchmarks use `renderToStaticMarkup`, which does not demonstrate `React.memo` block memoization. In a real browser with React reconciliation, the performance gap during streaming would be larger — but that's difficult to benchmark accurately.
+- Parse-only comparisons use different output formats (`Block[]` AST vs HTML string), so the speedup numbers are not an apples-to-apples comparison.
+
+The bundle size comparison is objective and fair: 3.8kb gzipped with 0 runtime dependencies vs 35.3kb gzipped with 11 runtime dependencies.
+
+## When to Use Which
+
+**Use react-markdown when:**
+- You're rendering static (non-streaming) markdown content
+- You need full CommonMark compliance
+- You need remark/rehype plugins (math, syntax highlighting, sanitization, etc.)
+- You need HTML passthrough support
+- You need server-side rendering
+
+**Use @deltakit/markdown when:**
+- You're rendering AI-streamed markdown in real time
+- Flicker-free rendering is important
+- Bundle size is a concern
+- You don't need the full CommonMark spec or plugin ecosystem

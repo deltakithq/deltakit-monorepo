@@ -1,0 +1,135 @@
+---
+title: Comparison
+description: Honest performance benchmarks and feature comparison against react-markdown.
+icon: GitCompareArrows
+---
+
+`@deltakit/markdown` is faster and smaller than `react-markdown`, but it also does less. This page presents honest numbers with full context so you can make an informed decision.
+
+## Bundle Size
+
+This is the most objective comparison — no caveats needed.
+
+| Metric | @deltakit/markdown | react-markdown |
+|--------|-------------------|----------------|
+| Minified | 12.0kb | 114.8kb |
+| Minified + gzipped | **3.8kb** | **35.3kb** |
+| Runtime dependencies | 0 | 11 |
+
+`react-markdown` is **9.3x larger** because it bundles the full unified/remark/rehype pipeline. `@deltakit/markdown` has zero runtime dependencies — the parser is built from scratch.
+
+## Render Performance
+
+Both libraries render the same markdown content via `renderToStaticMarkup`. Measured with vitest bench (tinybench).
+
+| Benchmark | @deltakit/markdown | react-markdown | Speedup |
+|-----------|-------------------|----------------|---------|
+| Short paragraph (~60 chars) | 145,000 ops/s | 26,000 ops/s | ~5.5x |
+| Mixed content (~1.2kb) | 5,500 ops/s | 1,150 ops/s | ~4.9x |
+| Streaming simulation (141 re-renders) | 77 ops/s | 17 ops/s | ~4.8x |
+
+### Caveats
+
+These numbers are real, but context matters:
+
+- **@deltakit/markdown produces simpler HTML.** Our renderer wraps blocks in extra `<div>` and `<span>` elements and doesn't nest `<p>` inside `<blockquote>`. Less DOM work naturally means faster rendering. This is not a same-output comparison.
+- **react-markdown runs a full CommonMark pipeline.** It parses via micromark, transforms through the remark/rehype AST pipeline, and produces spec-compliant HTML. We run a simplified regex-based parser. Being faster while doing less work is expected, not remarkable.
+- **The streaming simulation uses `renderToStaticMarkup`.** This does NOT demonstrate our `React.memo` block memoization advantage. In a real browser with React reconciliation, completed blocks would be skipped entirely — but that's difficult to benchmark accurately in a synthetic test.
+
+## Parse-Only Performance
+
+We also benchmark our parser (`parseIncremental`) against [micromark](https://github.com/micromark/micromark), the parser engine that react-markdown uses internally.
+
+| Benchmark | @deltakit/markdown | micromark | Speedup |
+|-----------|-------------------|-----------|---------|
+| Short paragraph | 3,985,000 ops/s | 28,000 ops/s | ~141x |
+| Mixed content (~1.2kb) | 312,000 ops/s | 1,427 ops/s | ~219x |
+| Streaming sim (141 parses) | 2,619 ops/s | 20 ops/s | ~128x |
+
+### Caveats
+
+- **Different output formats.** `parseIncremental` produces a `Block[]` array (lightweight AST). micromark produces a full HTML string with spec-compliant output. These are fundamentally different amounts of work.
+- **Different feature coverage.** micromark implements the full CommonMark specification. Our parser implements a subset. Fewer features means fewer code paths means faster execution.
+
+The parse-only numbers show our parser is fast, but the magnitude of the speedup is partly because we're solving a simpler problem.
+
+## Feature Comparison
+
+This is where react-markdown clearly has the advantage. It's a mature, battle-tested library with full spec compliance.
+
+### Features both libraries support
+
+| Feature | @deltakit/markdown | react-markdown |
+|---------|-------------------|----------------|
+| Headings (h1-h6) | Yes | Yes |
+| Paragraphs | Yes | Yes |
+| Bold (`**text**`) | Yes | Yes |
+| Italic (`*text*`) | Yes | Yes |
+| Inline code | Yes | Yes |
+| Fenced code blocks | Yes | Yes |
+| Links | Yes | Yes |
+| Images | Yes | Yes |
+| Unordered lists | Yes | Yes |
+| Ordered lists | Yes | Yes |
+| Blockquotes | Yes | Yes |
+| Horizontal rules | Yes | Yes |
+| Strikethrough | Yes | Via remark-gfm |
+| Tables | Partial | Via remark-gfm |
+| Autolinks | Yes | Yes |
+
+### Features only react-markdown supports
+
+| Feature | Status in @deltakit/markdown |
+|---------|------------------------------|
+| Full CommonMark compliance | Not supported |
+| Nested blockquotes | Not supported |
+| Reference links (`[text][id]`) | Not supported |
+| HTML entities (`&amp;`, `&mdash;`) | Not supported |
+| Escape sequences (`\*not italic\*`) | Not supported |
+| Plugin ecosystem (remark/rehype) | Not supported |
+| HTML passthrough (`rehypeRaw`) | Not supported |
+
+### Features only @deltakit/markdown supports
+
+| Feature | Description |
+|---------|-------------|
+| Block-level `React.memo` | Completed blocks never re-render, regardless of new tokens |
+| Incomplete syntax buffering | Raw `**`, `` ` ``, `[` never visible during streaming |
+| Code block skeleton | Pending code blocks render as empty `<pre>` shells, not paragraphs |
+| Render batching (`batchMs`) | Configurable DOM update frequency (8ms, 16ms, 32ms) |
+| Headless hook | `useStreamingMarkdown` for custom rendering |
+| Framework-agnostic parser | `parseIncremental` from `@deltakit/markdown/core` |
+| Zero runtime dependencies | No remark, rehype, unified, micromark, vfile |
+
+## When to Use Which
+
+**Use @deltakit/markdown when:**
+- You're rendering AI-streamed markdown in real time
+- Flicker-free rendering matters to your users
+- Bundle size is a concern
+- You don't need the full CommonMark spec or plugin ecosystem
+
+**Use react-markdown when:**
+- You're rendering static (non-streaming) markdown
+- You need full CommonMark compliance
+- You need remark/rehype plugins (math, syntax highlighting, sanitization)
+- You need HTML passthrough support
+
+Both are good tools. They solve different problems.
+
+## Running the Benchmarks
+
+The benchmarks are included in the package source. To run them yourself:
+
+```bash
+cd packages/markdown
+pnpm run bench
+```
+
+To save results as JSON for regression tracking:
+
+```bash
+pnpm run bench:save
+```
+
+Results are written to `benchmarks/results/latest.json`.

@@ -12,6 +12,7 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
+		"@deltakit/markdown": "workspace:*",
 		"@deltakit/react": "workspace:*",
 		"@tailwindcss/vite": "^4.1.18",
 		"@tanstack/react-devtools": "latest",
@@ -22,7 +23,7 @@
 		"@tanstack/router-plugin": "^1.132.0",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0",
-		"react-markdown": "10.1.0",
+
 		"tailwindcss": "^4.1.18"
 	},
 	"devDependencies": {

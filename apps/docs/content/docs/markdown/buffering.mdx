@@ -1,0 +1,85 @@
+---
+title: Incomplete Syntax Buffering
+description: How partial markdown is held back to prevent raw syntax from flickering on screen.
+---
+
+When `bufferIncomplete` is enabled (the default), the renderer holds back tokens that could change how the current segment renders. This prevents raw markdown syntax like `**`, `` ` ``, or `[` from briefly appearing in the DOM during streaming.
+
+## The Problem
+
+Without buffering, streaming markdown produces visual artifacts:
+
+```
+Token arrives:   "Hello **"
+Without buffer:  DOM shows "Hello **"      <- raw asterisks visible
+
+Token arrives:   "Hello **world"
+Without buffer:  DOM shows "Hello **world" <- still raw
+
+Token arrives:   "Hello **world**"
+Without buffer:  DOM shows "Hello world"   <- bold applied, but asterisks flickered
+```
+
+Users see asterisks, backticks, and brackets flash on screen for a fraction of a second before the closing marker arrives. This is distracting and looks broken.
+
+## The Solution
+
+With `bufferIncomplete: true`, the renderer identifies the last unclosed inline marker and holds back everything from that point:
+
+```
+Token arrives:   "Hello **"
+Buffer:          "**"              <- uncertain, could become bold or plain text
+Renders:         "Hello "          <- only the safe prefix
+
+Token arrives:   "Hello **world"
+Buffer:          "**world"         <- still uncertain
+Renders:         "Hello "          <- still safe prefix only
+
+Token arrives:   "Hello **world**"
+Buffer:          ""                <- resolved, bold confirmed
+Renders:         "Hello <strong>world</strong>"
+```
+
+No raw syntax is ever visible. The user sees "Hello " pause briefly, then "Hello **world**" appears fully formatted.
+
+## Buffered Markers
+
+The following inline patterns trigger buffering when unclosed:
+
+| Pattern | Example | Buffered Until |
+|---------|---------|----------------|
+| `**` / `__` | `Hello **wor` | Closing `**` / `__` |
+| `*` / `_` | `This is *imp` | Closing `*` / `_` |
+| `` ` `` | `Use \`cons` | Closing `` ` `` |
+| `~~` | `Hello ~~wor` | Closing `~~` |
+| `[` | `Click [here` | Closing `)` |
+| `![` | `See ![logo` | Closing `)` |
+
+## Flush Threshold
+
+To prevent indefinite buffering (e.g., a stray `**` that never closes), the buffer has a **200-character maximum**. If buffered content exceeds 200 characters, it is force-flushed and rendered as-is.
+
+When the stream ends (content stops changing), all buffered content is flushed regardless of whether markers are closed.
+
+## Disabling Buffering
+
+Set `bufferIncomplete={false}` to disable buffering entirely. All content renders immediately, including unclosed syntax:
+
+```tsx
+// Buffering on (default) — no raw syntax visible
+<StreamingMarkdown content={text} bufferIncomplete={true} />
+
+// Buffering off — faster display, but raw syntax may flash
+<StreamingMarkdown content={text} bufferIncomplete={false} />
+```
+
+Disabling buffering makes sense when:
+- You're rendering static (non-streaming) content
+- You want the fastest possible time-to-first-visible-content
+- You're confident your LLM produces well-formed markdown with minimal partial syntax
+
+## Notes
+
+- Buffering only affects **inline** syntax. Block-level markers (headings, code fences, list items) are handled by the block parser and don't need buffering.
+- Code blocks that are still being streamed (opening `` ``` `` received but no closing fence yet) render as an empty `<pre><code>` shell, not as buffered text. This is handled separately from inline buffering.
+- The 200-character threshold is a safety net, not a tuning knob. In practice, LLMs rarely produce unclosed inline markers that span more than a few tokens.

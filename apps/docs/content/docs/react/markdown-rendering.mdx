@@ -3,11 +3,57 @@ title: Markdown Rendering
 description: Render assistant responses as formatted markdown.
 ---
 
-DeltaKit streams plain text in `TextPart.text`. To render markdown formatting (headings, lists, code blocks, links), use a markdown renderer like `react-markdown`.
+DeltaKit streams plain text in `TextPart.text`. To render markdown formatting (headings, lists, code blocks, links), use a markdown renderer.
 
-## Setup
+## Option 1: @deltakit/markdown (Streaming-Optimized)
 
-Install `react-markdown`:
+`@deltakit/markdown` is built for AI streaming. It freezes completed blocks via `React.memo` and buffers incomplete syntax to prevent flicker.
+
+```bash tab="pnpm"
+pnpm add @deltakit/markdown
+```
+
+```bash tab="npm"
+npm install @deltakit/markdown
+```
+
+```bash tab="yarn"
+yarn add @deltakit/markdown
+```
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+import { StreamingMarkdown } from "@deltakit/markdown";
+
+function Chat() {
+  const { messages, sendMessage } = useStreamChat({
+    api: "/api/chat",
+  });
+
+  return (
+    <div>
+      {messages.map((msg) => (
+        <div key={msg.id}>
+          <strong>{msg.role}:</strong>
+          {msg.parts
+            .filter((p) => p.type === "text")
+            .map((p, i) => (
+              <div key={i} className="prose prose-sm max-w-none dark:prose-invert">
+                <StreamingMarkdown content={p.text} />
+              </div>
+            ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+See the full [@deltakit/markdown documentation](/docs/markdown) for details on custom components, buffering, and the headless hook.
+
+## Option 2: react-markdown (General-Purpose)
+
+[react-markdown](https://github.com/remarkjs/react-markdown) is a mature, widely-adopted renderer with full CommonMark compliance and a rich plugin ecosystem. It works well for streaming — it handles partial markdown gracefully and re-renders as content grows.
 
 ```bash tab="pnpm"
 pnpm add react-markdown
@@ -20,8 +66,6 @@ npm install react-markdown
 ```bash tab="yarn"
 yarn add react-markdown
 ```
-
-## Basic Usage
 
 ```tsx
 import { useStreamChat } from "@deltakit/react";
@@ -51,7 +95,7 @@ function Chat() {
 
 ## Styling with Tailwind Typography
 
-For well-styled prose output, use the `@tailwindcss/typography` plugin:
+For well-styled prose output with either renderer, use the `@tailwindcss/typography` plugin:
 
 ```bash tab="pnpm"
 pnpm add @tailwindcss/typography
@@ -75,13 +119,10 @@ Import it in your CSS:
 Then wrap markdown output in a `prose` container:
 
 ```tsx
-{msg.parts
-  .filter((p) => p.type === "text")
-  .map((p, i) => (
-    <div key={i} className="prose prose-sm max-w-none dark:prose-invert">
-      <Markdown>{p.text}</Markdown>
-    </div>
-  ))}
+<div className="prose prose-sm max-w-none dark:prose-invert">
+  <StreamingMarkdown content={p.text} />
+  {/* or: <Markdown>{p.text}</Markdown> */}
+</div>
 ```
 
 ## Integrating with the Part Component
@@ -90,14 +131,14 @@ If you're using a `<Part>` switch component (see [Tool Call Rendering](/docs/rea
 
 ```tsx
 import type { ContentPart } from "@deltakit/react";
-import Markdown from "react-markdown";
+import { StreamingMarkdown } from "@deltakit/markdown";
 
 function Part({ part }: { part: ContentPart }) {
   switch (part.type) {
     case "text":
       return (
         <div className="prose prose-sm max-w-none dark:prose-invert">
-          <Markdown>{part.text}</Markdown>
+          <StreamingMarkdown content={part.text} />
         </div>
       );
     case "tool_call":
@@ -108,13 +149,14 @@ function Part({ part }: { part: ContentPart }) {
 }
 ```
 
-## Streaming Behavior
+## Choosing a Renderer
 
-Markdown renders correctly during streaming because `react-markdown` handles partial markdown gracefully. As `text_delta` events arrive and `TextPart.text` grows, the component re-renders with progressively more complete markdown.
+| Concern | @deltakit/markdown | react-markdown |
+|---------|-------------------|----------------|
+| AI streaming | Optimized (block memoization, buffering) | Works, but re-renders everything |
+| CommonMark compliance | Partial | Full |
+| Plugin ecosystem | None | Rich (remark, rehype) |
+| Bundle size | ~3.8kb gzipped | ~35.3kb gzipped |
+| Dependencies | 0 | 11 |
 
-For example, as the stream progresses:
-- `"# He"` → renders an incomplete heading
-- `"# Hello\n\nThis is "` → heading resolves, paragraph begins
-- `"# Hello\n\nThis is **bold** text"` → bold formatting applied
-
-No special handling is needed. Standard React re-rendering takes care of it.
+Use `@deltakit/markdown` when streaming performance and flicker-free rendering matter. Use `react-markdown` when you need full spec compliance or the plugin ecosystem.

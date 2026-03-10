@@ -1,0 +1,108 @@
+---
+title: useStreamingMarkdown
+description: Headless hook for streaming markdown with custom rendering.
+---
+
+`useStreamingMarkdown` provides the same parsing and batching as `<StreamingMarkdown />` but returns raw React nodes instead of rendering them. Use this when you need full control over how blocks are rendered.
+
+```ts
+import { useStreamingMarkdown } from "@deltakit/markdown";
+```
+
+## Signature
+
+```ts
+function useStreamingMarkdown(
+  options: StreamingMarkdownOptions & { components?: ComponentOverrides },
+): UseStreamingMarkdownReturn;
+```
+
+## Options
+
+### `content` (required)
+
+**Type:** `string`
+
+The markdown string to parse and render.
+
+### `batchMs`
+
+**Type:** `number`
+**Default:** `16`
+
+Debounce interval for updates in milliseconds.
+
+### `bufferIncomplete`
+
+**Type:** `boolean`
+**Default:** `true`
+
+Hold back tokens with unclosed inline markers.
+
+### `components`
+
+**Type:** `ComponentOverrides`
+
+Override element renderers. Same interface as the `<StreamingMarkdown />` component.
+
+## Return Values
+
+### `nodes`
+
+**Type:** `ReactNode[]`
+
+An array of rendered React nodes, one per block. Render these however you want:
+
+```tsx
+const { nodes } = useStreamingMarkdown({ content: text });
+
+return <div className="prose">{nodes}</div>;
+```
+
+### `isComplete`
+
+**Type:** `boolean`
+
+`true` when the content has stabilized and no buffered content remains. Use this to show a loading indicator or streaming status:
+
+```tsx
+const { nodes, isComplete } = useStreamingMarkdown({ content: text });
+
+return (
+  <div>
+    {nodes}
+    {!isComplete && <span className="animate-pulse">...</span>}
+  </div>
+);
+```
+
+## Example
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+import { useStreamingMarkdown } from "@deltakit/markdown";
+
+function AssistantMessage({ text }: { text: string }) {
+  const { nodes, isComplete } = useStreamingMarkdown({
+    content: text,
+    batchMs: 16,
+    components: {
+      code({ language, children, inline }) {
+        if (inline) return <code className="bg-gray-100 px-1 rounded">{children}</code>;
+        return (
+          <pre className="bg-gray-900 p-4 rounded-lg">
+            <code>{children}</code>
+          </pre>
+        );
+      },
+    },
+  });
+
+  return (
+    <div className="prose prose-sm max-w-none dark:prose-invert">
+      {nodes}
+      {!isComplete && <span className="inline-block w-2 h-4 bg-current animate-pulse" />}
+    </div>
+  );
+}
+```

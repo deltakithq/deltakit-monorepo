@@ -1,0 +1,19 @@
+{
+	"title": "@deltakit/markdown",
+	"description": "Streaming markdown renderer",
+	"root": true,
+	"pages": [
+		"index",
+		"quick-start",
+		"benchmarks",
+		"---Guides---",
+		"streaming-markdown",
+		"custom-components",
+		"buffering",
+		"migration",
+		"---API References---",
+		"streaming-markdown-api",
+		"use-streaming-markdown",
+		"parse-incremental"
+	]
+}

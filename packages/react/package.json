@@ -1,7 +1,19 @@
 {
 	"name": "@deltakit/react",
-	"version": "0.0.0",
+	"version": "0.1.1",
+	"description": "DeltaKit React Markdown for LLM Response",
 	"type": "module",
+	"license": "MIT",
+	"author": "DeltaKit HQ",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/deltakithq/deltakit-monorepo",
+		"directory": "packages/react"
+	},
+	"keywords": [
+		"deltakit",
+		"react"
+	],
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
@@ -12,7 +24,9 @@
 	"main": "./dist/index.cjs",
 	"module": "./dist/index.js",
 	"types": "./dist/index.d.ts",
-	"files": ["dist"],
+	"files": [
+		"dist"
+	],
 	"scripts": {
 		"build": "tsup",
 		"dev": "tsup --watch",

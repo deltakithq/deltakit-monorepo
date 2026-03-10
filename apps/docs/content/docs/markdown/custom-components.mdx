@@ -1,0 +1,133 @@
+---
+title: Custom Components
+description: Override element renderers for headings, code blocks, links, and more.
+---
+
+Use the `components` prop to replace any default element renderer. The interface is intentionally compatible with `react-markdown` for easy migration.
+
+## Basic Usage
+
+```tsx
+import { StreamingMarkdown } from "@deltakit/markdown";
+
+<StreamingMarkdown
+  content={text}
+  components={{
+    code({ language, children, inline }) {
+      if (inline) return <code className="bg-gray-100 px-1 rounded">{children}</code>;
+      return (
+        <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
+          <code>{children}</code>
+        </pre>
+      );
+    },
+    a({ href, children }) {
+      return (
+        <a href={href} target="_blank" rel="noopener noreferrer">
+          {children}
+        </a>
+      );
+    },
+  }}
+/>
+```
+
+## Overridable Elements
+
+Every HTML element that the renderer produces can be overridden:
+
+| Element | Props | Description |
+|---------|-------|-------------|
+| `p` | `{ children }` | Paragraphs |
+| `h1` - `h6` | `{ children }` | Headings |
+| `code` | `{ language, children, inline }` | Code blocks and inline code |
+| `pre` | `{ children }` | Code block wrapper |
+| `blockquote` | `{ children }` | Block quotes |
+| `ul` | `{ children }` | Unordered lists |
+| `ol` | `{ children }` | Ordered lists |
+| `li` | `{ children }` | List items |
+| `a` | `{ href, children }` | Links |
+| `strong` | `{ children }` | Bold text |
+| `em` | `{ children }` | Italic text |
+| `del` | `{ children }` | Strikethrough text |
+| `hr` | (none) | Horizontal rules |
+| `img` | `{ src, alt }` | Images |
+| `table` | `{ children }` | Tables |
+| `thead` | `{ children }` | Table head |
+| `tbody` | `{ children }` | Table body |
+| `tr` | `{ children }` | Table rows |
+| `th` | `{ children }` | Table header cells |
+| `td` | `{ children }` | Table data cells |
+
+## Code Block with Syntax Highlighting
+
+The `code` component receives a `language` string (e.g. `"js"`, `"python"`) and an `inline` boolean. Use these to render syntax-highlighted code blocks:
+
+```tsx
+import { StreamingMarkdown } from "@deltakit/markdown";
+
+function MyCodeBlock({ language, children, inline }) {
+  if (inline) {
+    return <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-sm">{children}</code>;
+  }
+
+  return (
+    <div className="relative">
+      {language && (
+        <span className="absolute top-2 right-2 text-xs text-gray-400">{language}</span>
+      )}
+      <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+        <code>{children}</code>
+      </pre>
+    </div>
+  );
+}
+
+<StreamingMarkdown content={text} components={{ code: MyCodeBlock }} />
+```
+
+## Custom Link Behavior
+
+Open external links in a new tab while keeping internal links in the same tab:
+
+```tsx
+function SmartLink({ href, children }) {
+  const isExternal = href.startsWith("http");
+  return (
+    <a
+      href={href}
+      target={isExternal ? "_blank" : undefined}
+      rel={isExternal ? "noopener noreferrer" : undefined}
+      className="text-blue-500 hover:underline"
+    >
+      {children}
+    </a>
+  );
+}
+
+<StreamingMarkdown content={text} components={{ a: SmartLink }} />
+```
+
+## Using with the Hook
+
+The `useStreamingMarkdown` hook also accepts a `components` prop:
+
+```tsx
+import { useStreamingMarkdown } from "@deltakit/markdown";
+
+const { nodes, isComplete } = useStreamingMarkdown({
+  content: streamingText,
+  components: {
+    code: MyCodeBlock,
+    a: SmartLink,
+  },
+});
+
+// Render nodes however you want
+return <div className="prose">{nodes}</div>;
+```
+
+## Notes
+
+- Components are merged with defaults using `useMemo`. Changing the `components` object reference triggers a re-render, so define your components object outside the render function or wrap it in `useMemo`.
+- Only the elements listed above are overridable. Wrapper `<div>` and `<span>` elements used for block structure cannot be customized.

@@ -1,0 +1,98 @@
+---
+title: Overview
+description: Streaming markdown renderer for AI chat. No flicker. No broken syntax.
+icon: House
+---
+
+`@deltakit/markdown` is a React markdown renderer purpose-built for AI streaming. It parses and renders markdown incrementally, so completed blocks never re-render and partial syntax never flickers on screen.
+
+## Why a Separate Renderer?
+
+Libraries like [react-markdown](https://github.com/remarkjs/react-markdown) are excellent general-purpose markdown renderers with full CommonMark compliance and a rich plugin ecosystem. If you're rendering static markdown content, react-markdown is the right choice.
+
+However, when used with AI streaming, traditional renderers re-run a full parse pipeline on every token. This causes:
+
+- **Full reparse cost** on every incoming token
+- **Broken partial syntax** — unclosed `**` renders as plain text, then flickers bold when closed
+- **Layout shifts on code blocks** — `` ``` `` renders as a paragraph until the closing fence arrives
+
+`@deltakit/markdown` solves these problems by design. It parses markdown into blocks, freezes completed blocks via `React.memo`, and buffers uncertain inline syntax until it resolves.
+
+## What's Included
+
+- **`StreamingMarkdown`** — Main React component with block-level memoization
+- **`useStreamingMarkdown`** — Headless hook for custom rendering
+- **`parseIncremental`** — Framework-agnostic parser (importable from `@deltakit/markdown/core`)
+
+## Installation
+
+```bash tab="pnpm"
+pnpm add @deltakit/markdown
+```
+
+```bash tab="npm"
+npm install @deltakit/markdown
+```
+
+```bash tab="yarn"
+yarn add @deltakit/markdown
+```
+
+## Quick Example
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+import { StreamingMarkdown } from "@deltakit/markdown";
+
+function Chat() {
+  const { messages, sendMessage } = useStreamChat({
+    api: "/api/chat",
+  });
+
+  return (
+    <div>
+      {messages.map((msg) => (
+        <div key={msg.id}>
+          {msg.parts
+            .filter((p) => p.type === "text")
+            .map((p, i) => (
+              <StreamingMarkdown key={i} content={p.text} />
+            ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Supported Markdown Features
+
+| Feature | Supported |
+|---------|-----------|
+| Headings (h1-h6) | Yes |
+| Paragraphs | Yes |
+| Bold (`**text**`) | Yes |
+| Italic (`*text*`) | Yes |
+| Inline code (`` `code` ``) | Yes |
+| Code blocks (`` ``` ``) | Yes |
+| Links (`[text](url)`) | Yes |
+| Images (`![alt](src)`) | Yes |
+| Unordered lists | Yes |
+| Ordered lists | Yes |
+| Blockquotes | Yes |
+| Horizontal rules | Yes |
+| Strikethrough (`~~text~~`) | Yes |
+| Tables (basic) | Partial |
+| Autolinks | Yes |
+
+Features **not** supported in v0.1.0: nested blockquotes, reference links, HTML entities, escape sequences, and the remark/rehype plugin system. See [Migration from react-markdown](/docs/markdown/migration) for a full comparison.
+
+## Bundle Size
+
+`@deltakit/markdown` has **zero runtime dependencies**. The minified + gzipped bundle is approximately **3.8kb**.
+
+## Next Steps
+
+- [Quick Start](/docs/markdown/quick-start): Install and render streaming markdown in minutes
+- [StreamingMarkdown](/docs/markdown/streaming-markdown): How block-level rendering works
+- [Migration from react-markdown](/docs/markdown/migration): Side-by-side comparison and migration guide

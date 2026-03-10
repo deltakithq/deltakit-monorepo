@@ -1,0 +1,113 @@
+---
+title: StreamingMarkdown
+description: The main React component for rendering streaming markdown.
+---
+
+`StreamingMarkdown` renders markdown content with block-level memoization. Completed blocks never re-render, and incomplete syntax is buffered to prevent flicker.
+
+```ts
+import { StreamingMarkdown } from "@deltakit/markdown";
+```
+
+## Props
+
+### `content` (required)
+
+**Type:** `string`
+
+The markdown string to render. In a streaming scenario, this grows as tokens arrive.
+
+```tsx
+<StreamingMarkdown content={streamingText} />
+```
+
+### `components`
+
+**Type:** `ComponentOverrides`
+
+Override renderers for specific HTML elements. See [Custom Components](/docs/markdown/custom-components) for details.
+
+```tsx
+<StreamingMarkdown
+  content={text}
+  components={{
+    code({ language, children, inline }) {
+      if (inline) return <code>{children}</code>;
+      return <pre><code>{children}</code></pre>;
+    },
+  }}
+/>
+```
+
+### `batchMs`
+
+**Type:** `number`
+**Default:** `16`
+
+Debounce interval for DOM updates in milliseconds. Controls the maximum render frequency during streaming.
+
+| Value | Effect |
+|-------|--------|
+| `0` | No debounce, update on every token |
+| `8` | ~120fps |
+| `16` | ~60fps (default) |
+| `32` | ~30fps |
+
+```tsx
+<StreamingMarkdown content={text} batchMs={8} />
+```
+
+### `bufferIncomplete`
+
+**Type:** `boolean`
+**Default:** `true`
+
+When enabled, holds back tokens with unclosed inline markers (`**`, `` ` ``, `[`, etc.) to prevent raw syntax from appearing in the DOM. See [Buffering](/docs/markdown/buffering) for details.
+
+```tsx
+<StreamingMarkdown content={text} bufferIncomplete={true} />
+```
+
+### `className`
+
+**Type:** `string`
+
+CSS class applied to the wrapper `<div>`.
+
+```tsx
+<StreamingMarkdown content={text} className="prose dark:prose-invert" />
+```
+
+## ComponentOverrides
+
+The full type for the `components` prop:
+
+```ts
+interface ComponentOverrides {
+  p?: (props: { children: ReactNode }) => ReactNode;
+  h1?: (props: { children: ReactNode }) => ReactNode;
+  h2?: (props: { children: ReactNode }) => ReactNode;
+  h3?: (props: { children: ReactNode }) => ReactNode;
+  h4?: (props: { children: ReactNode }) => ReactNode;
+  h5?: (props: { children: ReactNode }) => ReactNode;
+  h6?: (props: { children: ReactNode }) => ReactNode;
+  code?: (props: { language?: string; children: ReactNode; inline?: boolean }) => ReactNode;
+  pre?: (props: { children: ReactNode }) => ReactNode;
+  blockquote?: (props: { children: ReactNode }) => ReactNode;
+  ul?: (props: { children: ReactNode }) => ReactNode;
+  ol?: (props: { children: ReactNode }) => ReactNode;
+  li?: (props: { children: ReactNode }) => ReactNode;
+  a?: (props: { href: string; children: ReactNode }) => ReactNode;
+  strong?: (props: { children: ReactNode }) => ReactNode;
+  em?: (props: { children: ReactNode }) => ReactNode;
+  del?: (props: { children: ReactNode }) => ReactNode;
+  hr?: () => ReactNode;
+  img?: (props: { src: string; alt: string }) => ReactNode;
+  table?: (props: { children: ReactNode }) => ReactNode;
+  thead?: (props: { children: ReactNode }) => ReactNode;
+  tbody?: (props: { children: ReactNode }) => ReactNode;
+  tr?: (props: { children: ReactNode }) => ReactNode;
+  th?: (props: { children: ReactNode }) => ReactNode;
+  td?: (props: { children: ReactNode }) => ReactNode;
+}
+```

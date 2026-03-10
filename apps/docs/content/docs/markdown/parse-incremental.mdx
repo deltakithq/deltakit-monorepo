@@ -1,0 +1,159 @@
+---
+title: parseIncremental
+description: Framework-agnostic incremental markdown parser.
+---
+
+`parseIncremental` is the core parser that powers `@deltakit/markdown`. It takes a markdown string and returns an array of parsed blocks with completion status and buffered content. It has no React dependency and can be used in any JavaScript environment.
+
+```ts
+import { parseIncremental } from "@deltakit/markdown/core";
+```
+
+## Signature
+
+```ts
+function parseIncremental(
+  content: string,
+  options?: ParseOptions,
+): ParseResult;
+```
+
+## Options
+
+### `bufferIncomplete`
+
+**Type:** `boolean`
+**Default:** `true`
+
+When enabled, identifies unclosed inline markers and splits the last block into a safe-to-render prefix and a buffered suffix.
+
+```ts
+const result = parseIncremental("Hello **wor", { bufferIncomplete: true });
+// result.blocks[0].raw === "Hello "  (safe prefix)
+// result.buffered === "**wor"        (held back)
+
+const resolved = parseIncremental("Hello **world**", { bufferIncomplete: true });
+// resolved.blocks[0].raw === "Hello **world**"  (fully resolved)
+// resolved.buffered === ""
+```
+
+## Return Value
+
+### `ParseResult`
+
+```ts
+interface ParseResult {
+  blocks: Block[];
+  buffered: string;
+}
+```
+
+### `blocks`
+
+An array of parsed `Block` objects:
+
+```ts
+interface Block {
+  id: number;                                    // Stable ID for React keys
+  type: BlockType;                               // "heading" | "paragraph" | "code" | ...
+  raw: string;                                   // Raw markdown source
+  complete: boolean;                             // true = frozen, never changes
+  level?: 1 | 2 | 3 | 4 | 5 | 6;               // Heading level (headings only)
+  language?: string;                             // Code language (code blocks only)
+  listStyle?: "ordered" | "unordered";           // List style (lists only)
+}
+```
+
+### `buffered`
+
+A string of held-back content that has unclosed inline markers. Empty when `bufferIncomplete` is `false` or when all markers are resolved.
+
+## Block Types
+
+```ts
+type BlockType =
+  | "heading"
+  | "paragraph"
+  | "code"
+  | "blockquote"
+  | "list"
+  | "table"
+  | "hr";
+```
+
+## Example: Streaming Simulation
+
+```ts
+import { parseIncremental } from "@deltakit/markdown/core";
+
+// Simulate tokens arriving one by one
+const states = [
+  "# Hello",
+  "# Hello\n\nThis is ",
+  "# Hello\n\nThis is a paragraph",
+  "# Hello\n\nThis is a paragraph\n\n",
+];
+
+for (const content of states) {
+  const { blocks, buffered } = parseIncremental(content);
+
+  console.log(`Content length: ${content.length}`);
+  console.log(`Blocks: ${blocks.length}`);
+  for (const block of blocks) {
+    console.log(`  [${block.id}] ${block.type} complete=${block.complete}`);
+  }
+  console.log(`Buffered: "${buffered}"`);
+  console.log("---");
+}
+```
+
+Output:
+
+```
+Content length: 7
+Blocks: 1
+  [0] heading complete=false
+Buffered: ""
+---
+Content length: 18
+Blocks: 2
+  [0] heading complete=true
+  [1] paragraph complete=false
+Buffered: ""
+---
+Content length: 30
+Blocks: 2
+  [0] heading complete=true
+  [1] paragraph complete=false
+Buffered: ""
+---
+Content length: 32
+Blocks: 2
+  [0] heading complete=true
+  [1] paragraph complete=true
+Buffered: ""
+---
+```
+
+The heading is marked `complete=true` as soon as the blank line after it is received. From that point on, re-parsing the content always produces the same heading block — it never changes.
+
+## Non-React Usage
+
+Since `parseIncremental` has no React dependency, you can use it in Vue, Solid, Svelte, or any other framework. Import from the `/core` subpath:
+
+```ts
+import { parseIncremental } from "@deltakit/markdown/core";
+
+// Use with any rendering framework
+const { blocks } = parseIncremental(markdownContent);
+
+for (const block of blocks) {
+  // Render each block with your framework's rendering system
+}
+```
+
+## Related
+
+- [parseInline](/docs/markdown/parse-incremental#parseinline) — Inline token parser (exported from `@deltakit/markdown/core`)
+- [StreamingMarkdown](/docs/markdown/streaming-markdown-api) — React component that wraps this parser
+- [useStreamingMarkdown](/docs/markdown/use-streaming-markdown) — React hook that wraps this parser

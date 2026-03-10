@@ -1,6 +1,6 @@
+import { StreamingMarkdown } from "@deltakit/markdown";
 import { fromOpenAiAgents, useStreamChat } from "@deltakit/react";
 import { createFileRoute } from "@tanstack/react-router";
-import Markdown from "react-markdown";
 import { ToolCall } from "../components/tool-call";
 
 const API_URL = "http://localhost:8000/api/chat/";
@@ -21,7 +21,6 @@ export const Route = createFileRoute("/")({
 
 function Chat() {
 	const initialMessages = Route.useLoaderData();
-	console.log("Initial messages:", initialMessages);
 
 	const { messages, isLoading, sendMessage, stop, setMessages } = useStreamChat(
 		{
@@ -80,7 +79,7 @@ function Chat() {
 													key={`text-${partIndex}`}
 													className="prose prose-invert prose-sm max-w-none"
 												>
-													<Markdown>{part.text}</Markdown>
+													<StreamingMarkdown content={part.text} batchMs={8} />
 												</div>
 											);
 										case "tool_call":

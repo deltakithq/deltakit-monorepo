@@ -1,0 +1,89 @@
+---
+title: StreamingMarkdown
+description: How block-level incremental rendering works.
+---
+
+The `<StreamingMarkdown />` component renders markdown incrementally at the block level. Completed blocks are frozen via `React.memo` and never re-render, regardless of how many new tokens arrive.
+
+## How It Works
+
+As markdown streams in, the parser splits content into **blocks** — headings, paragraphs, code blocks, lists, blockquotes, and so on.
+
+```
+Stream: "# Hello\n\nThis is a paragraph being streamed tok"
+
+Stable blocks (never re-render):
+  [0] <h1>Hello</h1>              <- complete, frozen
+
+Active block (re-renders on each token):
+  [1] <p>This is a paragraph being streamed tok</p>
+```
+
+Each block gets a stable React `key`. When a new block starts, the previous one is marked complete and wrapped in `React.memo` with a custom comparator that always returns `true` for complete blocks. React's reconciler skips it entirely.
+
+## Block Completion Rules
+
+A block is considered **complete** when its terminator is received:
+
+| Block Type | Starts With | Complete When |
+|---|---|---|
+| Heading | `# `, `## `, etc. | Newline received |
+| Paragraph | Any text | Blank line (`\n\n`) received |
+| Code block | `` ``` `` or `~~~` | Closing fence received |
+| Blockquote | `> ` | Blank line received |
+| List | `- `, `* `, `1. ` | Blank line received |
+| Table | `\|` | Row without `\|` received |
+| Horizontal rule | `---` / `***` | Newline received |
+
+## Code Block Handling
+
+Code blocks receive special treatment. While incomplete, they render as an empty `<pre><code>` shell rather than as a broken paragraph:
+
+```
+Stream:   "```js\nconsole.log"
+Renders:  <pre><code class="language-js"></code></pre>   (empty shell)
+
+Stream:   "```js\nconsole.log('hi')\n```"
+Renders:  <pre><code class="language-js">console.log('hi')</code></pre>
+```
+
+This prevents the common problem where `` ```js `` renders as a paragraph until the closing fence arrives.
+
+## Render Batching
+
+The `batchMs` prop debounces DOM updates during high-frequency token streams:
+
+```tsx
+// Default: 16ms = max 60fps updates
+<StreamingMarkdown content={text} batchMs={16} />
+
+// Smoother: 8ms = max 120fps updates
+<StreamingMarkdown content={text} batchMs={8} />
+
+// Lighter: 32ms = max 30fps, less CPU
+<StreamingMarkdown content={text} batchMs={32} />
+
+// No batching: update on every token (useful for testing)
+<StreamingMarkdown content={text} batchMs={0} />
+```
+
+Choose based on your use case. For most AI chat UIs, `batchMs={16}` (the default) provides a good balance between smoothness and CPU usage.
+
+## Styling
+
+The component renders a wrapper `<div>` that accepts a `className` prop:
+
+```tsx
+<StreamingMarkdown
+  content={text}
+  className="prose prose-sm max-w-none dark:prose-invert"
+/>
+```
+
+This works well with the [Tailwind Typography](https://tailwindcss.com/docs/typography-plugin) plugin for styled prose output.
+
+## Notes
+
+- The component parses the full `content` string on every render. This is fast (the parser handles 300k+ ops/sec on realistic content) but means it's not truly incremental at the parse level — only at the render level.
+- Block IDs are assigned sequentially starting from 0. They reset on each parse call, so the same content always produces the same block structure.
+- `batchMs` is implemented with `setTimeout`. If React 18+ concurrent features are available, the component still uses `setTimeout` for predictable timing behavior.
