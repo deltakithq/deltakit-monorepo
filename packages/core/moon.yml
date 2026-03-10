@@ -35,6 +35,13 @@ tasks:
     command: 'echo'
     args: ['No tests for core package']
 
+  typecheck:
+    command: 'pnpm'
+    args: ['exec', 'tsc', '--noEmit']
+    inputs:
+      - 'src/**/*'
+      - 'tsconfig.json'
+
   publish:
     command: 'pnpm'
     args: ['publish', '--access', 'public', '--no-git-checks']
