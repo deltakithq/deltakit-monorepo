@@ -39,5 +39,3 @@ tasks:
     deps:
       - '~:build'
       - '~:test'
-    options:
-      cwd: 'packages/markdown'

@@ -33,5 +33,3 @@ tasks:
     args: ['publish', '--access', 'public', '--no-git-checks']
     deps:
       - '~:build'
-    options:
-      cwd: 'packages/core'
