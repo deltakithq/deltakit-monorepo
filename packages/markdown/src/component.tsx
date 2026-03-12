@@ -25,6 +25,52 @@ const STREAMING_STYLES = `
     transition: opacity 150ms ease-out;
     will-change: opacity;
   }
+
+  .streaming-markdown-image-skeleton {
+    display: inline-block;
+    width: min(18rem, 100%);
+    max-width: 100%;
+    min-width: 10rem;
+    height: 10rem;
+    border-radius: 0.5rem;
+    background: linear-gradient(
+      90deg,
+      rgba(15, 23, 42, 0.08) 0%,
+      rgba(15, 23, 42, 0.14) 50%,
+      rgba(15, 23, 42, 0.08) 100%
+    );
+    background-size: 200% 100%;
+    animation: streaming-markdown-image-pulse 1.2s ease-in-out infinite;
+    vertical-align: middle;
+  }
+
+  .streaming-markdown-image-fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: min(18rem, 100%);
+    max-width: 100%;
+    min-height: 6rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(15, 23, 42, 0.16);
+    background: rgba(15, 23, 42, 0.04);
+    color: rgba(15, 23, 42, 0.78);
+    font-size: 0.75rem;
+    line-height: 1.3;
+    text-align: center;
+    box-sizing: border-box;
+    vertical-align: middle;
+  }
+
+  @keyframes streaming-markdown-image-pulse {
+    0% {
+      background-position: 0% 50%;
+    }
+    100% {
+      background-position: 100% 50%;
+    }
+  }
 `;
 
 /**

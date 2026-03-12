@@ -191,6 +191,37 @@ describe("parseIncremental", () => {
 			expect(result.buffered).toContain("[");
 		});
 
+		it("should buffer unclosed image alt marker", () => {
+			const result = parseIncremental("Look ![cat", {
+				bufferIncomplete: true,
+			});
+			expect(result.buffered).toContain("![");
+		});
+
+		it("should buffer unclosed image URL marker", () => {
+			const result = parseIncremental(
+				"Look ![cat](https://example.com/cat.png",
+				{
+					bufferIncomplete: true,
+				},
+			);
+			expect(result.buffered).toContain("![");
+			if (result.blocks[0]) {
+				expect(result.blocks[0].raw).toBe("Look ");
+			}
+		});
+
+		it("should resolve buffer when image syntax is complete", () => {
+			const result = parseIncremental(
+				"Look ![cat](https://example.com/cat.png)",
+				{
+					bufferIncomplete: true,
+				},
+			);
+			expect(result.buffered).toBe("");
+			expect(result.blocks).toHaveLength(1);
+		});
+
 		it("should force-flush buffer over 200 chars", () => {
 			const longText = "Hello **" + "a".repeat(250);
 			const result = parseIncremental(longText, { bufferIncomplete: true });

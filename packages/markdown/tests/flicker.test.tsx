@@ -218,6 +218,43 @@ describe("flicker regression", () => {
 		expect(link?.getAttribute("href")).toBe("https://deltakit.dev");
 		expect(c3.textContent).toContain("click here");
 	});
+
+	/**
+	 * CASE 6: Image
+	 * Stream: "![p" → "![photo](https://example.com/pic" → "![photo](https://example.com/pic.png)"
+	 * Assert: No raw image marker text is visible before syntax resolves.
+	 */
+	it("CASE 6: Image — no raw image marker visible during streaming", () => {
+		const { container: c1 } = render(
+			createElement(StreamingMarkdown, {
+				content: "![p",
+				batchMs: 0,
+				bufferIncomplete: true,
+			}),
+		);
+		const text1 = c1.textContent ?? "";
+		expect(text1).not.toContain("![");
+
+		const { container: c2 } = render(
+			createElement(StreamingMarkdown, {
+				content: "![photo](https://example.com/pic",
+				batchMs: 0,
+				bufferIncomplete: true,
+			}),
+		);
+		const text2 = c2.textContent ?? "";
+		expect(text2).not.toContain("![");
+		expect(text2).not.toContain("](");
+
+		const { container: c3 } = render(
+			createElement(StreamingMarkdown, {
+				content: "![photo](https://example.com/pic.png)",
+				batchMs: 0,
+				bufferIncomplete: true,
+			}),
+		);
+		expect(c3.querySelector(".streaming-markdown-image-skeleton")).toBeTruthy();
+	});
 });
 
 describe("stable block rerender count", () => {

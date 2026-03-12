@@ -237,8 +237,6 @@ export function findBufferPoint(input: string): number {
 		{ open: "__", close: "__" },
 		{ open: "~~", close: "~~" },
 		{ open: "`", close: "`" },
-		{ open: "![", close: ")" },
-		{ open: "[", close: ")" },
 	];
 
 	let earliestUnclosed = -1;
@@ -249,6 +247,20 @@ export function findBufferPoint(input: string): number {
 			if (earliestUnclosed === -1 || unclosedAt < earliestUnclosed) {
 				earliestUnclosed = unclosedAt;
 			}
+		}
+	}
+
+	const unclosedImage = findFirstUnclosedImage(input);
+	if (unclosedImage !== -1) {
+		if (earliestUnclosed === -1 || unclosedImage < earliestUnclosed) {
+			earliestUnclosed = unclosedImage;
+		}
+	}
+
+	const unclosedLink = findFirstUnclosedLink(input);
+	if (unclosedLink !== -1) {
+		if (earliestUnclosed === -1 || unclosedLink < earliestUnclosed) {
+			earliestUnclosed = unclosedLink;
 		}
 	}
 
@@ -277,13 +289,6 @@ function findFirstUnclosed(input: string, open: string, close: string): number {
 	while (pos < input.length) {
 		const openIdx = input.indexOf(open, pos);
 		if (openIdx === -1) return -1;
-
-		// For ** and __, make sure we're not in a position that's already handled
-		// Skip if this is a link/image bracket that starts a valid construct
-		if (open === "[" && openIdx > 0 && input[openIdx - 1] === "!") {
-			pos = openIdx + 1;
-			continue;
-		}
 
 		// Find matching close after the open
 		const afterOpen = openIdx + open.length;
@@ -335,6 +340,50 @@ function findFirstUnclosedSingle(input: string, marker: string): number {
 		}
 
 		pos = closeIdx + 1;
+	}
+
+	return -1;
+}
+
+/** Find the first unclosed markdown image marker `![alt](src)` */
+function findFirstUnclosedImage(input: string): number {
+	let pos = 0;
+
+	while (pos < input.length) {
+		const openIdx = input.indexOf("![", pos);
+		if (openIdx === -1) return -1;
+
+		const result = parseLinkOrImage(input, openIdx + 1, true);
+		if (!result) {
+			return openIdx;
+		}
+
+		pos = result.end;
+	}
+
+	return -1;
+}
+
+/** Find the first unclosed markdown link marker `[text](href)` (excluding images) */
+function findFirstUnclosedLink(input: string): number {
+	let pos = 0;
+
+	while (pos < input.length) {
+		const openIdx = input.indexOf("[", pos);
+		if (openIdx === -1) return -1;
+
+		// Skip image markers here; handled by findFirstUnclosedImage.
+		if (openIdx > 0 && input[openIdx - 1] === "!") {
+			pos = openIdx + 1;
+			continue;
+		}
+
+		const result = parseLinkOrImage(input, openIdx, false);
+		if (!result) {
+			return openIdx;
+		}
+
+		pos = result.end;
 	}
 
 	return -1;

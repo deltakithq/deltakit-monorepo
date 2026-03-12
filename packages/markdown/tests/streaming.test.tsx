@@ -1,8 +1,41 @@
-import { render } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import { StreamingMarkdown } from "../src/component.js";
 import { parseIncremental } from "../src/core/parser.js";
+
+function installMockImage(
+	resolve: (src: string) => "load" | "error",
+): () => void {
+	const OriginalImage = globalThis.Image;
+
+	class MockImage {
+		onload: ((ev: Event) => void) | null = null;
+		onerror: ((ev: Event) => void) | null = null;
+		private _src = "";
+
+		set src(value: string) {
+			this._src = value;
+			setTimeout(() => {
+				if (resolve(value) === "error") {
+					this.onerror?.(new Event("error"));
+				} else {
+					this.onload?.(new Event("load"));
+				}
+			}, 0);
+		}
+
+		get src(): string {
+			return this._src;
+		}
+	}
+
+	globalThis.Image = MockImage as unknown as typeof Image;
+
+	return () => {
+		globalThis.Image = OriginalImage;
+	};
+}
 
 describe("streaming simulation", () => {
 	describe("token-by-token parsing", () => {
@@ -136,6 +169,91 @@ describe("streaming simulation", () => {
 			const link = container.querySelector("a");
 			expect(link).toBeTruthy();
 			expect(link?.getAttribute("href")).toBe("https://example.com");
+		});
+
+		it("should render image skeleton first, then reveal image once loaded", async () => {
+			const restore = installMockImage(() => "load");
+			try {
+				const { container } = render(
+					createElement(StreamingMarkdown, {
+						content: "Look ![logo](https://example.com/logo.png)\n\n",
+						batchMs: 0,
+					}),
+				);
+
+				expect(
+					container.querySelector(".streaming-markdown-image-skeleton"),
+				).toBeTruthy();
+				expect(container.querySelector("img")).toBeFalsy();
+
+				await waitFor(() => {
+					expect(container.querySelector("img")).toBeTruthy();
+				});
+
+				expect(
+					container.querySelector(".streaming-markdown-image-skeleton"),
+				).toBeFalsy();
+			} finally {
+				restore();
+			}
+		});
+
+		it("should render fallback with alt text when image load fails", async () => {
+			const restore = installMockImage(() => "error");
+			try {
+				const { container } = render(
+					createElement(StreamingMarkdown, {
+						content: "Look ![profile photo](https://example.com/fail.png)\n\n",
+						batchMs: 0,
+					}),
+				);
+
+				expect(
+					container.querySelector(".streaming-markdown-image-skeleton"),
+				).toBeTruthy();
+
+				await waitFor(() => {
+					expect(
+						container.querySelector(".streaming-markdown-image-fallback"),
+					).toBeTruthy();
+				});
+
+				expect(container.textContent).toContain("profile photo");
+				expect(container.querySelector("img")).toBeFalsy();
+			} finally {
+				restore();
+			}
+		});
+
+		it("should reuse cached image readiness and avoid skeleton flicker", async () => {
+			const restore = installMockImage(() => "load");
+			try {
+				const first = render(
+					createElement(StreamingMarkdown, {
+						content: "![logo](https://example.com/cached-logo.png)",
+						batchMs: 0,
+					}),
+				);
+
+				await waitFor(() => {
+					expect(first.container.querySelector("img")).toBeTruthy();
+				});
+				first.unmount();
+
+				const second = render(
+					createElement(StreamingMarkdown, {
+						content: "![logo](https://example.com/cached-logo.png)",
+						batchMs: 0,
+					}),
+				);
+
+				expect(second.container.querySelector("img")).toBeTruthy();
+				expect(
+					second.container.querySelector(".streaming-markdown-image-skeleton"),
+				).toBeFalsy();
+			} finally {
+				restore();
+			}
 		});
 
 		it("should render empty content without errors", () => {

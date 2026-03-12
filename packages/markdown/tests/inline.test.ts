@@ -178,6 +178,20 @@ describe("findBufferPoint", () => {
 		expect(point).toBeGreaterThanOrEqual(0);
 	});
 
+	it("should find unclosed image alt marker", () => {
+		const point = findBufferPoint("See ![logo");
+		expect(point).toBeGreaterThanOrEqual(0);
+		expect("See ![logo".slice(point)).toContain("![");
+	});
+
+	it("should find unclosed image URL marker", () => {
+		const point = findBufferPoint("See ![logo](https://example.com/logo.png");
+		expect(point).toBeGreaterThanOrEqual(0);
+		expect("See ![logo](https://example.com/logo.png".slice(point)).toContain(
+			"![",
+		);
+	});
+
 	it("should find unclosed strikethrough", () => {
 		const point = findBufferPoint("Hello ~~wor");
 		expect(point).toBeGreaterThanOrEqual(0);
@@ -185,5 +199,11 @@ describe("findBufferPoint", () => {
 
 	it("should return -1 when all markers are closed", () => {
 		expect(findBufferPoint("Hello **bold** and *italic* and `code`")).toBe(-1);
+	});
+
+	it("should return -1 for complete image syntax", () => {
+		expect(findBufferPoint("See ![logo](https://example.com/logo.png)")).toBe(
+			-1,
+		);
 	});
 });
