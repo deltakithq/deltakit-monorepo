@@ -1,9 +1,17 @@
 ---
-title: Markdown Rendering
-description: Render assistant responses as formatted markdown.
+title: Render Markdown in Chat
+description: Recipe for rendering streaming assistant responses as formatted markdown with syntax highlighting and styling.
 ---
 
-DeltaKit streams plain text in `TextPart.text`. To render markdown formatting (headings, lists, code blocks, links), use a markdown renderer.
+This recipe shows how to render streamed text as formatted markdown. You'll compare rendering options, integrate a markdown library, and style the output with Tailwind.
+
+## Problem
+
+Assistant responses contain markdown formatting (headings, lists, code blocks, links) but render as plain text by default. You need to:
+- Parse markdown syntax during streaming
+- Prevent flickering and layout shifts
+- Style the output to match your UI
+- Choose between lightweight and full-featured renderers
 
 ## Option 1: @deltakit/markdown (Streaming-Optimized)
 

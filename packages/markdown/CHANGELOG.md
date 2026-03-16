@@ -1,5 +1,17 @@
 # @deltakit/markdown
 
+## 0.1.6
+
+### Patch Changes
+
+- Update package descriptions and add homepage URL
+
+  - @deltakit/core: "Build AI chat backends with SSE streaming and type-safe message handling"
+  - @deltakit/react: "React hooks for streaming AI conversations with real-time updates"
+  - @deltakit/markdown: "Stream markdown in AI chat without flicker or broken syntax"
+
+  All packages now include homepage: https://deltakit.dev
+
 ## 0.1.5
 
 ### Patch Changes

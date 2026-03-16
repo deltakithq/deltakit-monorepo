@@ -1,7 +1,8 @@
 {
 	"name": "@deltakit/core",
-	"version": "0.1.2",
-	"description": "DeltaKit core library",
+	"version": "0.1.3",
+	"description": "Build AI chat backends with SSE streaming and type-safe message handling",
+	"homepage": "https://deltakit.dev",
 	"type": "module",
 	"license": "MIT",
 	"author": "DeltaKit HQ",

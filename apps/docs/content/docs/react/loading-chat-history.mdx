@@ -1,9 +1,17 @@
 ---
-title: Initial Messages
-description: Pre-populate conversations from a database or API.
+title: Load Chat History
+description: Recipe for loading previous conversations from a database or API when the chat mounts.
 ---
 
-Use the `initialMessages` option to load an existing conversation when the component mounts.
+This recipe shows how to load existing conversations from your backend when the chat component mounts. You'll fetch history from an API, handle loading states, and convert formats like OpenAI Agents SDK.
+
+## Problem
+
+Users want to see their previous conversations when they return to the chat. You need to:
+- Fetch conversation history from your API
+- Handle loading states gracefully  
+- Convert between different message formats
+- Initialize the chat with the loaded messages
 
 ## Basic Usage
 

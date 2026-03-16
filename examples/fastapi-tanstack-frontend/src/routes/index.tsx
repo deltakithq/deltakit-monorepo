@@ -1,5 +1,6 @@
 import { StreamingMarkdown } from "@deltakit/markdown";
 import {
+	type ContentPart,
 	fromOpenAiAgents,
 	useAutoScroll,
 	useStreamChat,
@@ -26,23 +27,84 @@ export const Route = createFileRoute("/")({
 function Chat() {
 	const initialMessages = Route.useLoaderData();
 
-	const { messages, isLoading, sendMessage, stop, setMessages } = useStreamChat(
-		{
-			api: API_URL,
-			initialMessages,
-			onEvent: (event, helpers) => {
-				if (event.type === "text_delta") {
-					helpers.appendText(event.delta);
-				} else if (event.type === "tool_call") {
-					helpers.appendPart({
-						type: "tool_call",
-						tool_name: event.tool_name,
-						argument: event.argument,
-					});
-				}
-			},
+	// Define custom event types for the demo
+	type CustomEvent =
+		| { type: "text_delta"; delta: string }
+		| {
+				type: "tool_call";
+				tool_name: string;
+				argument: string;
+				call_id?: string;
+		  }
+		| { type: "tool_result"; call_id: string | null; output: string }
+		| { type: "reasoning"; text: string };
+
+	const { messages, isLoading, sendMessage, stop, setMessages } = useStreamChat<
+		ContentPart,
+		CustomEvent
+	>({
+		api: API_URL,
+		initialMessages,
+		onEvent: (event, helpers) => {
+			if (event.type === "text_delta") {
+				helpers.appendText(event.delta);
+			} else if (event.type === "tool_call") {
+				helpers.appendPart({
+					type: "tool_call",
+					tool_name: event.tool_name,
+					argument: event.argument,
+					callId: event.call_id,
+				});
+			} else if (event.type === "tool_result") {
+				// Find and update the matching tool_call with its result
+				helpers.setMessages((prev) => {
+					const last = prev[prev.length - 1];
+					if (!last || last.role !== "assistant") return prev;
+
+					const updatedParts = [...last.parts];
+					// Find the tool_call with matching callId
+					for (let i = updatedParts.length - 1; i >= 0; i--) {
+						const p = updatedParts[i];
+						if (p.type === "tool_call" && p.callId === event.call_id) {
+							updatedParts[i] = { ...p, result: event.output };
+							break;
+						}
+					}
+
+					const updated = { ...last, parts: updatedParts };
+					return [...prev.slice(0, -1), updated];
+				});
+			} else if (event.type === "reasoning") {
+				// Accumulate reasoning text into existing reasoning part or create new one
+				helpers.setMessages((prev) => {
+					const last = prev[prev.length - 1];
+					if (!last || last.role !== "assistant") return prev;
+
+					const parts = [...last.parts];
+					const lastPart = parts[parts.length - 1];
+
+					if (lastPart && lastPart.type === "reasoning") {
+						// Append to existing reasoning part
+						parts[parts.length - 1] = {
+							...lastPart,
+							text:
+								(lastPart as { type: "reasoning"; text: string }).text +
+								event.text,
+						};
+					} else {
+						// Create new reasoning part
+						parts.push({
+							type: "reasoning",
+							text: event.text,
+						} as ContentPart);
+					}
+
+					const updated = { ...last, parts };
+					return [...prev.slice(0, -1), updated];
+				});
+			}
 		},
-	);
+	});
 
 	const { ref, scrollToBottom, isAtBottom } = useAutoScroll([messages]);
 
@@ -93,8 +155,34 @@ function Chat() {
 												<ToolCall
 													key={`tool_call-${partIndex}`}
 													argument={part.argument}
+													result={part.result}
 												/>
 											);
+										case "reasoning": {
+											const reasoningPart = part as {
+												type: "reasoning";
+												text: string;
+											};
+											return (
+												<div
+													key={`reasoning-${partIndex}`}
+													className="rounded border border-neutral-700 bg-neutral-800/50 p-3 text-sm text-neutral-400 italic"
+												>
+													<div className="flex items-center gap-2 mb-2">
+														<span className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
+															Thinking
+														</span>
+														{isLoading &&
+															partIndex === msg.parts.length - 1 && (
+																<span className="inline-block w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse" />
+															)}
+													</div>
+													<p className="whitespace-pre-wrap">
+														{reasoningPart.text}
+													</p>
+												</div>
+											);
+										}
 										default:
 											return null;
 									}

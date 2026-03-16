@@ -3,9 +3,9 @@ title: Auto Scroll
 description: Keep the chat scrolled to the bottom during streaming.
 ---
 
-## Basic Usage
-
 `useAutoScroll` keeps your scroll container pinned to the bottom as new content streams in.
+
+## Basic Usage
 
 ```tsx
 import { useStreamChat, useAutoScroll } from "@deltakit/react";
@@ -69,31 +69,6 @@ const handleSubmit = (text: string) => {
 };
 ```
 
-## Showing a "Scroll to Bottom" Indicator
-
-Use the reactive `isAtBottom` value to conditionally render a button when the user has scrolled away:
-
-```tsx
-const { ref, scrollToBottom, isAtBottom } = useAutoScroll([messages]);
-
-return (
-  <div className="relative">
-    <div ref={ref} className="h-96 overflow-y-auto">
-      {/* messages */}
-    </div>
-
-    {!isAtBottom && (
-      <button
-        onClick={scrollToBottom}
-        className="absolute bottom-4 left-1/2 -translate-x-1/2"
-      >
-        New messages below
-      </button>
-    )}
-  </div>
-);
-```
-
 ## Disabling Auto Scroll
 
 Pass `enabled: false` to turn off auto-scroll while keeping the ref attached:
@@ -110,7 +85,12 @@ By default the hook scrolls instantly (no animation) to avoid visual jitter duri
 const { ref } = useAutoScroll([messages], { behavior: "smooth" });
 ```
 
-## Next Steps
+## Recipes
 
-- [useAutoScroll API Reference](/docs/react/use-auto-scroll) — full options and return values
-- [Markdown Rendering](/docs/react/markdown-rendering) — render streamed text as formatted markdown
+For common auto-scroll patterns, see these recipes:
+
+- [Scroll to Bottom Indicator](/docs/react/scroll-to-bottom-indicator) — Show a button when users scroll up
+
+## API Reference
+
+See [useAutoScroll API Reference](/docs/react/use-auto-scroll) for full options and return values.

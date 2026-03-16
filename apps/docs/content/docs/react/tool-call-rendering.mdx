@@ -1,9 +1,8 @@
 ---
-title: Tool Call Rendering
-description: Display tool calls with loading states and results in your UI.
+title: Display Tool Calls
 ---
 
-When your server performs tool calls (function calling), the assistant message contains `ToolCallPart` entries alongside text. This guide shows how to handle the `onEvent` callback and render tool calls in the UI.
+This recipe shows how to display tool calls in your chat UI with loading states and results. You'll handle `tool_call` and `tool_result` events, then render them as rich UI components.
 
 ## Handling Tool Call Events
 

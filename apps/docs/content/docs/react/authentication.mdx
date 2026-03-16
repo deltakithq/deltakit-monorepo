@@ -1,9 +1,21 @@
 ---
-title: Authentication
-description: Pass auth tokens and handle unauthorized errors.
+title: Secure Your Chat API
+description: Recipe for adding authentication with JWT tokens, handling 401 errors, and validating requests server-side.
 ---
 
-DeltaKit doesn't have a built-in auth system. Authentication is handled through the `headers` option on `useStreamChat`.
+This recipe shows how to secure your chat API with authentication. You'll learn how to pass tokens from the client, handle unauthorized errors, and validate requests on the server.
+
+## Problem
+
+You need to:
+- Authenticate users before allowing chat access
+- Pass tokens securely from React to your API
+- Handle token expiration and refresh
+- Validate tokens on the server
+
+## Solution Overview
+
+Use the `headers` option in `useStreamChat` to send authentication tokens. Handle 401 errors with `onError`. Validate tokens server-side before processing requests.
 
 ## Bearer Token
 

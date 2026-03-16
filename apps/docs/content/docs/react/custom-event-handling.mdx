@@ -75,6 +75,16 @@ See [Tool Call Rendering](/docs/react/tool-call-rendering) for how to display th
 
 ## Streaming Reasoning
 
+Display chain-of-thought as it arrives from reasoning models (o1, o3, Kimi, etc.).
+
+<Callout type="info">
+**Recipe Available**: For a complete implementation including backend deduplication, UI patterns, and best practices, see the [Reasoning Events recipe](/docs/react/reasoning-events).
+</Callout>
+
+<Callout type="warning">
+**Accumulation Required**: Like `text_delta`, reasoning events arrive as small chunks. You must accumulate them into a single `reasoning` part rather than creating new parts for each chunk. See the example below.
+</Callout>
+
 Display chain-of-thought as it arrives:
 
 ```tsx

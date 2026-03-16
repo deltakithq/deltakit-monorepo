@@ -1,0 +1,383 @@
+---
+title: Handle Tool Results
+description: Recipe for matching tool calls with their results and updating the UI when tools complete.
+---
+
+This recipe shows how to handle tool results that arrive after tool calls complete. You'll learn how to match results to calls using `call_id`, update the message state, and display results in your UI.
+
+## Problem
+
+When an AI model calls tools (functions), the execution happens asynchronously:
+1. Model sends `tool_call` event with a `call_id`
+2. Server executes the tool (may take seconds)
+3. Server sends `tool_result` event with the same `call_id`
+4. UI must update to show the result
+
+You need to:
+- Track pending tool calls
+- Match incoming results to the correct call
+- Update the UI without creating duplicate entries
+- Show loading states while tools execute
+
+## Solution Overview
+
+Use `setMessages` to find the matching `ToolCallPart` by `callId` and attach the result:
+
+```
+Backend:                    Frontend State:
+tool_call (call_1)    →     parts: [{type: "tool_call", callId: "call_1", ...}]
+                               ↓
+tool_result (call_1)  →     parts: [{type: "tool_call", callId: "call_1", result: "..."}]
+```
+
+## Backend Implementation
+
+Your server should emit events with matching `call_id`:
+
+```python
+# Python/FastAPI example
+async def event_generator():
+    # Tool call from model
+    yield f'data: {{"type": "tool_call", "tool_name": "get_weather", "argument": "{{\\"city\\": \\"Paris\\"}}", "call_id": "call_123"}}\n\n'
+    
+    # Execute tool...
+    result = await get_weather(city="Paris")
+    
+    # Send result with matching call_id
+    yield f'data: {{"type": "tool_result", "call_id": "call_123", "output": "22°C and sunny"}}\n\n'
+```
+
+**Event Format:**
+- `tool_call`: `{type: "tool_call", tool_name: string, argument: string, call_id?: string}`
+- `tool_result`: `{type: "tool_result", call_id: string, output: string}`
+
+## Frontend Implementation
+
+### 1. Define Custom Event Types
+
+```tsx
+import { useStreamChat, type ContentPart } from "@deltakit/react";
+
+type CustomEvent =
+  | { type: "text_delta"; delta: string }
+  | { type: "tool_call"; tool_name: string; argument: string; call_id?: string }
+  | { type: "tool_result"; call_id: string; output: string };
+```
+
+### 2. Handle Events and Match Results
+
+```tsx
+function Chat() {
+  const { messages, isLoading, sendMessage } = useStreamChat<ContentPart, CustomEvent>({
+    api: "/api/chat",
+    onEvent: (event, { appendText, appendPart, setMessages }) => {
+      switch (event.type) {
+        case "text_delta":
+          appendText(event.delta);
+          break;
+
+        case "tool_call":
+          // Add new tool call to message
+          appendPart({
+            type: "tool_call",
+            tool_name: event.tool_name,
+            argument: event.argument,
+            callId: event.call_id,
+          });
+          break;
+
+        case "tool_result":
+          // Find matching tool call and attach result
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (!last || last.role !== "assistant") return prev;
+
+            const updatedParts = last.parts.map((part) => {
+              // Match by callId
+              if (part.type === "tool_call" && part.callId === event.call_id) {
+                return { ...part, result: event.output };
+              }
+              return part;
+            });
+
+            return [...prev.slice(0, -1), { ...last, parts: updatedParts }];
+          });
+          break;
+      }
+    },
+  });
+
+  return (
+    <div>
+      {messages.map((msg) => (
+        <Message key={msg.id} message={msg} />
+      ))}
+    </div>
+  );
+}
+```
+
+### 3. Render Tool Calls with Results
+
+```tsx
+import type { ToolCallPart } from "@deltakit/react";
+
+function ToolCallWithResult({ part }: { part: ToolCallPart }) {
+  // Parse arguments for display
+  let args: Record<string, unknown> = {};
+  try {
+    args = JSON.parse(part.argument);
+  } catch {
+    // ignore
+  }
+
+  return (
+    <div className="my-2 rounded-lg border border-neutral-700 bg-neutral-800/50 p-3">
+      {/* Tool name */}
+      <div className="flex items-center gap-2 text-sm font-medium text-indigo-400">
+        <span>{part.tool_name}</span>
+        
+        {/* Loading or completed indicator */}
+        {!part.result ? (
+          <span className="flex items-center gap-1 text-xs text-neutral-500">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-indigo-500" />
+            Running...
+          </span>
+        ) : (
+          <span className="text-xs text-green-500">✓ Complete</span>
+        )}
+      </div>
+
+      {/* Arguments */}
+      <pre className="mt-2 overflow-x-auto rounded bg-neutral-900 p-2 text-xs text-neutral-400">
+        {JSON.stringify(args, null, 2)}
+      </pre>
+
+      {/* Result (shown when available) */}
+      {part.result && (
+        <div className="mt-2 rounded border border-green-900/50 bg-green-900/20 p-2">
+          <p className="text-xs font-medium text-green-400">Result:</p>
+          <p className="mt-1 text-sm text-neutral-300">{part.result}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Complete Working Example
+
+```tsx
+import { useStreamChat, type ContentPart } from "@deltakit/react";
+import { StreamingMarkdown } from "@deltakit/markdown";
+
+type CustomEvent =
+  | { type: "text_delta"; delta: string }
+  | { type: "tool_call"; tool_name: string; argument: string; call_id?: string }
+  | { type: "tool_result"; call_id: string; output: string };
+
+export function Chat() {
+  const { messages, isLoading, sendMessage, stop } = useStreamChat<ContentPart, CustomEvent>({
+    api: "/api/chat",
+    onEvent: (event, { appendText, appendPart, setMessages }) => {
+      switch (event.type) {
+        case "text_delta":
+          appendText(event.delta);
+          break;
+
+        case "tool_call":
+          appendPart({
+            type: "tool_call",
+            tool_name: event.tool_name,
+            argument: event.argument,
+            callId: event.call_id,
+          });
+          break;
+
+        case "tool_result":
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (!last || last.role !== "assistant") return prev;
+
+            const updatedParts = last.parts.map((part) =>
+              part.type === "tool_call" && part.callId === event.call_id
+                ? { ...part, result: event.output }
+                : part
+            );
+
+            return [...prev.slice(0, -1), { ...last, parts: updatedParts }];
+          });
+          break;
+      }
+    },
+  });
+
+  return (
+    <div className="flex h-screen flex-col">
+      <div className="flex-1 overflow-y-auto p-4">
+        {messages.map((msg) => (
+          <div key={msg.id} className="mb-6">
+            <p className="mb-2 text-xs font-semibold text-neutral-400">
+              {msg.role === "user" ? "You" : "Assistant"}
+            </p>
+            
+            {msg.parts.map((part, idx) => {
+              switch (part.type) {
+                case "text":
+                  return (
+                    <div key={idx} className="prose prose-invert prose-sm max-w-none">
+                      <StreamingMarkdown content={part.text} />
+                    </div>
+                  );
+                  
+                case "tool_call":
+                  return <ToolCallWithResult key={idx} part={part} />;
+              }
+            })}
+          </div>
+        ))}
+      </div>
+
+      <form
+        className="border-t border-neutral-800 p-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const input = e.currentTarget.elements.namedItem("message") as HTMLInputElement;
+          if (input.value.trim()) {
+            sendMessage(input.value);
+            input.value = "";
+          }
+        }}
+      >
+        <div className="flex gap-2">
+          <input
+            name="message"
+            placeholder="Type a message..."
+            className="flex-1 rounded border border-neutral-700 bg-neutral-800 px-3 py-2"
+          />
+          {isLoading ? (
+            <button type="button" onClick={stop} className="px-4 py-2 bg-red-600 rounded">
+              Stop
+            </button>
+          ) : (
+            <button type="submit" className="px-4 py-2 bg-neutral-100 text-neutral-900 rounded">
+              Send
+            </button>
+          )}
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function ToolCallWithResult({ part }: { part: Extract<ContentPart, { type: "tool_call" }> }) {
+  let args = {};
+  try {
+    args = JSON.parse(part.argument);
+  } catch {}
+
+  return (
+    <div className="my-2 rounded-lg border border-neutral-700 bg-neutral-800/50 p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-indigo-400">{part.tool_name}</span>
+        {!part.result ? (
+          <span className="text-xs text-neutral-500 flex items-center gap-1">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-indigo-500" />
+            Running
+          </span>
+        ) : (
+          <span className="text-xs text-green-500">✓ Done</span>
+        )}
+      </div>
+      
+      <pre className="mt-2 text-xs text-neutral-400 overflow-x-auto">
+        {JSON.stringify(args, null, 2)}
+      </pre>
+      
+      {part.result && (
+        <div className="mt-2 p-2 rounded bg-green-900/20 border border-green-900/50">
+          <p className="text-xs text-green-400 font-medium">Result:</p>
+          <p className="text-sm text-neutral-300 mt-1">{part.result}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Multiple Tool Calls
+
+A single response can contain multiple tool calls, each with its own `call_id`:
+
+```
+tool_call (call_1)     → UI shows "get_weather - Running..."
+tool_call (call_2)     → UI shows "calculate - Running..."
+tool_result (call_2)   → UI updates "calculate - Done" with result
+tool_result (call_1)   → UI updates "get_weather - Done" with result
+```
+
+The frontend handles this automatically by matching each `tool_result` to its `tool_call` via `callId`.
+
+## Error Handling
+
+Handle failed tool executions:
+
+```tsx
+case "tool_result":
+  setMessages((prev) => {
+    const last = prev[prev.length - 1];
+    if (!last || last.role !== "assistant") return prev;
+
+    const updatedParts = last.parts.map((part) => {
+      if (part.type === "tool_call" && part.callId === event.call_id) {
+        return { 
+          ...part, 
+          result: event.error 
+            ? `Error: ${event.error}` 
+            : event.output 
+        };
+      }
+      return part;
+    });
+
+    return [...prev.slice(0, -1), { ...last, parts: updatedParts }];
+  });
+  break;
+```
+
+## Best Practices
+
+1. **Always include call_id** — Backend must include `call_id` in both `tool_call` and `tool_result` events
+2. **Show loading state** — Display "Running..." indicator while waiting for results
+3. **Handle missing matches** — If no matching tool call is found, the result should be gracefully ignored
+4. **Use result field** — The `ToolCallPart.result` field is the standard place to store outputs
+5. **Type safety** — Define custom event types to ensure `call_id` is typed correctly
+
+## Common Issues
+
+### Results Not Appearing
+
+**Symptom**: Tool calls show but results never appear.
+
+**Check**: 
+- Verify backend sends `call_id` in both events
+- Check that `callId` field names match (case-sensitive)
+- Ensure `onEvent` handles the `tool_result` case
+
+### Duplicate Results
+
+**Symptom**: Same result appears multiple times.
+
+**Fix**: Check if result already exists before updating:
+
+```tsx
+if (part.type === "tool_call" && part.callId === event.call_id && !part.result) {
+  return { ...part, result: event.output };
+}
+```
+
+## Related
+
+- [Display Tool Calls](/docs/react/tool-call-rendering) — Full UI patterns for tool calls
+- [Custom Event Handling](/docs/react/custom-event-handling) — General guide for handling custom events
+- [Tool Calls (Core)](/docs/core/tool-calls) — Server-side protocol reference
