@@ -65,7 +65,7 @@ export function parseIncremental(
 					}
 					case "code": {
 						const fenceMatch = line.match(/^(\s*)(`{3,}|~{3,})/);
-						codeFenceMarker = fenceMatch?.[2]?.[0] ?? "`";
+						codeFenceMarker = fenceMatch?.[2] ?? "```";
 						codeLanguage = extractCodeLanguage(line);
 						currentRaw = line;
 						state = "PENDING_CODE_BLOCK";
@@ -158,10 +158,12 @@ export function parseIncremental(
 			case "PENDING_CODE_BLOCK":
 			case "IN_CODE_BLOCK": {
 				// Check if this line is a closing fence
+				// Closing fence must use same character (` or ~) and at least as many as opening
 				const trimmed = line.trim();
-				const isClosingFence =
-					trimmed.length >= 3 &&
-					new RegExp(`^${codeFenceMarker}{3,}\\s*$`).test(trimmed);
+				const fenceChar = codeFenceMarker[0];
+				const fenceLen = codeFenceMarker.length;
+				const closingPattern = new RegExp(`^${fenceChar}{${fenceLen},}\\s*$`);
+				const isClosingFence = closingPattern.test(trimmed);
 
 				if (
 					(isClosingFence && state !== "PENDING_CODE_BLOCK") ||
@@ -200,6 +202,9 @@ export function parseIncremental(
 					state = "IDLE";
 				} else if (line.trimStart().startsWith(">")) {
 					currentRaw += `\n${line}`;
+				} else if (isLazyContinuation(line)) {
+					// Lazy continuation: non-indented line continues blockquote paragraph
+					currentRaw += `\n${line}`;
 				} else {
 					// Non-blockquote line ends the blockquote
 					blocks.push(
@@ -217,6 +222,9 @@ export function parseIncremental(
 					// Check if the next line continues the list
 					if (nextLine && isListItem(nextLine)) {
 						currentRaw += `\n${line}`;
+					} else if (nextLine && isIndentedContinuation(nextLine)) {
+						// Multi-paragraph list item: indented content after blank line
+						currentRaw += `\n${line}`;
 					} else {
 						blocks.push(
 							createBlock("list", currentRaw, {
@@ -228,7 +236,23 @@ export function parseIncremental(
 						listStyle = undefined;
 						state = "IDLE";
 					}
-				} else if (isListItem(line) || isContinuation(line)) {
+				} else if (isListItem(line)) {
+					// Check if list type changed (ordered -> unordered or vice versa)
+					const newListStyle = getListStyle(line);
+					if (newListStyle && newListStyle !== listStyle) {
+						// List type changed - close current list and start new one
+						blocks.push(
+							createBlock("list", currentRaw, {
+								complete: true,
+								listStyle,
+							}),
+						);
+						currentRaw = line;
+						listStyle = newListStyle;
+					} else {
+						currentRaw += `\n${line}`;
+					}
+				} else if (isContinuation(line) || isIndentedContinuation(line)) {
 					currentRaw += `\n${line}`;
 				} else if (isLastLine && isPartialListMarker(line)) {
 					// Partial list marker on last line (e.g. "-", "1.", "1")
@@ -414,6 +438,58 @@ function isListItem(line: string): boolean {
 /** Check if a line is a continuation of a list item (indented) */
 function isContinuation(line: string): boolean {
 	return /^\s{2,}/.test(line) && line.trim().length > 0;
+}
+
+/**
+ * Check if a line is an indented continuation (for multi-paragraph list items).
+ * These are lines that are indented but don't start a new block.
+ */
+function isIndentedContinuation(line: string): boolean {
+	// Must be indented (at least 2 spaces)
+	if (!/^\s{2,}/.test(line)) return false;
+	const trimmed = line.trimStart();
+	// Doesn't start a new block
+	if (/^#{1,6}\s/.test(trimmed)) return false; // heading
+	if (/^[-*+]\s+/.test(trimmed)) return false; // unordered list
+	if (/^\d+\.\s+(?![\d.])/.test(trimmed)) return false; // ordered list
+	if (/^```|~~~/.test(trimmed)) return false; // code fence
+	if (/^\|/.test(trimmed)) return false; // table
+	// Non-empty line
+	return trimmed.length > 0;
+}
+
+/**
+ * Get the list style (ordered or unordered) of a list item line.
+ */
+function getListStyle(line: string): "ordered" | "unordered" | null {
+	const trimmed = line.trimStart();
+	if (/^[-*+]\s+/.test(trimmed)) return "unordered";
+	if (/^\d+\.\s+(?![\d.])/.test(trimmed)) return "ordered";
+	return null;
+}
+
+/**
+ * Check if a line is a lazy continuation of a blockquote.
+ * In lazy continuation, a line without > can continue a blockquote paragraph
+ * if it's not indented and doesn't start a new block.
+ */
+function isLazyContinuation(line: string): boolean {
+	const trimmed = line.trimStart();
+	// Not indented (no leading whitespace)
+	if (/^\s/.test(line)) return false;
+	// Doesn't start a new block
+	if (/^#{1,6}\s/.test(trimmed)) return false; // heading
+	if (/^[-*+]\s+/.test(trimmed)) return false; // unordered list
+	if (/^\d+\.\s+(?![\d.])/.test(trimmed)) return false; // ordered list
+	if (/^```|~~~/.test(trimmed)) return false; // code fence
+	if (/^\|/.test(trimmed)) return false; // table
+	if (/^>\s?/.test(trimmed)) return false; // nested blockquote
+	// Not a horizontal rule
+	if (/^(\*\s*){3,}$/.test(trimmed)) return false;
+	if (/^(-\s*){3,}$/.test(trimmed)) return false;
+	if (/^(_\s*){3,}$/.test(trimmed)) return false;
+	// Non-empty line that continues the paragraph
+	return trimmed.length > 0;
 }
 
 /**

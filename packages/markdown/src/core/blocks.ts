@@ -115,9 +115,12 @@ export function extractCodeContent(raw: string): string {
 	return lines.slice(startIdx, endIdx).join("\n");
 }
 
-/** Extract language from a code fence opening */
+/** Extract language from a code fence opening (first word only) */
 export function extractCodeLanguage(fenceLine: string): string | undefined {
-	const match = fenceLine.match(/^(`{3,}|~{3,})\s*(.*)/);
+	const trimmed = fenceLine.trimStart();
+	// Use RegExp constructor to avoid potential bundling issues with backticks
+	const pattern = /^(`{3,}|~{3,})\s*(\S*)/;
+	const match = trimmed.match(pattern);
 	const lang = match?.[2]?.trim();
 	return lang || undefined;
 }

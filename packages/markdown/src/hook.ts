@@ -26,6 +26,35 @@ import type {
 import { mergeComponents } from "./renderers/defaults.js";
 
 /**
+ * Sanitize a URL to prevent XSS attacks.
+ * Blocks javascript: and data: (non-image) protocols.
+ * Allows: http:, https:, mailto:, tel:, and data:image/*
+ */
+function sanitizeUrl(url: string): string {
+	if (!url) return "";
+
+	const trimmed = url.trim().toLowerCase();
+
+	// Block javascript: protocol (case-insensitive)
+	if (trimmed.startsWith("javascript:")) {
+		return "";
+	}
+
+	// Block data: URIs that aren't images
+	if (trimmed.startsWith("data:") && !trimmed.startsWith("data:image/")) {
+		return "";
+	}
+
+	// Block vbscript: protocol
+	if (trimmed.startsWith("vbscript:")) {
+		return "";
+	}
+
+	// Allow all other URLs (including relative URLs, http, https, mailto, tel, etc.)
+	return url;
+}
+
+/**
  * Hook for headless streaming markdown usage.
  * Returns parsed React nodes and streaming status.
  */
@@ -452,25 +481,37 @@ function renderInlineToken(
 			return createElement(
 				"span",
 				{ key },
-				components.a({ href: token.href ?? "", children }),
+				components.a({ href: sanitizeUrl(token.href ?? ""), children }),
 			);
 		}
-		case "image":
+		case "image": {
+			const sanitizedSrc = sanitizeUrl(token.href ?? "");
+			// If URL is unsafe, don't render the image at all
+			if (!sanitizedSrc) {
+				return createElement("span", { key }, "[Image]");
+			}
 			return createElement(
 				"span",
 				{ key },
 				createElement(BufferedImageToken, {
-					src: token.href ?? "",
+					src: sanitizedSrc,
 					alt: token.alt ?? "",
 					components,
 				}),
 			);
-		case "autolink":
+		}
+		case "autolink": {
+			const sanitizedHref = sanitizeUrl(token.href ?? "");
+			// If URL is unsafe (e.g., javascript:), render as plain text
+			if (!sanitizedHref) {
+				return createElement("span", { key }, token.value);
+			}
 			return createElement(
 				"span",
 				{ key },
-				components.a({ href: token.href ?? "", children: token.value }),
+				components.a({ href: sanitizedHref, children: token.value }),
 			);
+		}
 		default:
 			return createElement("span", { key }, token.value);
 	}

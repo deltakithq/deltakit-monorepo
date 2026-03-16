@@ -1,5 +1,37 @@
 # @deltakit/markdown
 
+## 0.2.0
+
+### Minor Changes
+
+- ## 0.2.0 - Comprehensive Markdown Parser Improvements
+
+  ### New Features
+
+  - **Lazy blockquote continuation**: Lines without `>` can now continue blockquote paragraphs (CommonMark compliant)
+  - **Mixed list type detection**: Ordered and unordered lists now properly split when list type changes
+  - **Multi-paragraph list items**: Indented content after blank lines within lists is now preserved
+  - **4+ backtick fence support**: Code blocks with 4+ backticks now properly handle nested 3-backtick content
+
+  ### Bug Fixes
+
+  - Fixed code block language extraction to only extract the first word (e.g., `typescript` from `typescript highlight=1`)
+  - Fixed regex bundling issue that caused code block languages to be undefined in production builds
+  - Fixed XSS vulnerabilities in link href and image src attributes (blocks javascript: protocol)
+  - Fixed version number parsing to prevent corruption during streaming (e.g., v25.0, 11.8.0)
+
+  ### Testing
+
+  - Added 94 comprehensive parsing tests covering edge cases, unicode, special characters, and complex documents
+  - Added XSS prevention tests for link href sanitization and image src sanitization
+  - Total test coverage: 228 tests (all passing)
+
+  ### Performance
+
+  - Benchmarks show 5x faster rendering than react-markdown
+  - 190x faster parsing than micromark
+  - Bundle size remains 9x smaller (3.8kb gzipped)
+
 ## 0.1.8
 
 ### Patch Changes
