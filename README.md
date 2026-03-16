@@ -1,5 +1,7 @@
 # DeltaKit Monorepo
 
+**Created by:** Indra Zulfi Mushoddaq
+
 DeltaKit is a lightweight toolkit for building real-time AI chat interfaces with streaming responses.
 
 This repository contains:
