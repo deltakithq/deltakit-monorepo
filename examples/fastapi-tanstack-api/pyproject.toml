@@ -4,10 +4,11 @@ version = "0.0.1"
 description = "FastAPI + TanStack example"
 requires-python = ">=3.12"
 dependencies = [
+    "agno>=2.5.9",
     "aiosqlite>=0.22.1",
     "fastapi>=0.135.1",
     "greenlet>=3.3.2",
-    "openai-agents[litellm]>=0.10.5",
+    "openai-agents[litellm,sqlalchemy]>=0.10.5",
     "python-dotenv>=1.2.2",
     "scalar-fastapi>=1.8.0",
     "tavily-python>=0.7.22",

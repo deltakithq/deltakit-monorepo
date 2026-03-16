@@ -1,0 +1,170 @@
+---
+title: Render Markdown
+description: Recipe for rendering streaming assistant responses as formatted markdown with syntax highlighting and styling using Agno agents.
+---
+
+This recipe shows how to render streamed text as formatted markdown when using **Agno** agents on the backend. You'll compare rendering options, integrate a markdown library, and style the output with Tailwind.
+
+## Problem
+
+Assistant responses contain markdown formatting (headings, lists, code blocks, links) but render as plain text by default. You need to:
+- Parse markdown syntax during streaming
+- Prevent flickering and layout shifts
+- Style the output to match your UI
+- Choose between lightweight and full-featured renderers
+
+## Option 1: @deltakit/markdown (Streaming-Optimized)
+
+`@deltakit/markdown` is built for AI streaming. It freezes completed blocks via `React.memo` and buffers incomplete syntax to prevent flicker.
+
+```bash tab="pnpm"
+pnpm add @deltakit/markdown
+```
+
+```bash tab="npm"
+npm install @deltakit/markdown
+```
+
+```bash tab="yarn"
+yarn add @deltakit/markdown
+```
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+import { StreamingMarkdown } from "@deltakit/markdown";
+
+function Chat() {
+  const { messages, sendMessage } = useStreamChat({
+    api: "/api/chat-agno",
+  });
+
+  return (
+    <div>
+      {messages.map((msg) => (
+        <div key={msg.id}>
+          <strong>{msg.role}:</strong>
+          {msg.parts
+            .filter((p) => p.type === "text")
+            .map((p, i) => (
+              <div key={i} className="prose prose-sm max-w-none dark:prose-invert">
+                <StreamingMarkdown content={p.text} />
+              </div>
+            ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+See the full [@deltakit/markdown documentation](/docs/markdown) for details on custom components, buffering, and the headless hook.
+
+## Option 2: react-markdown (General-Purpose)
+
+[react-markdown](https://github.com/remarkjs/react-markdown) is a mature, widely-adopted renderer with full CommonMark compliance and a rich plugin ecosystem. It works well for streaming — it handles partial markdown gracefully and re-renders as content grows.
+
+```bash tab="pnpm"
+pnpm add react-markdown
+```
+
+```bash tab="npm"
+npm install react-markdown
+```
+
+```bash tab="yarn"
+yarn add react-markdown
+```
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+import Markdown from "react-markdown";
+
+function Chat() {
+  const { messages, sendMessage } = useStreamChat({
+    api: "/api/chat-agno",
+  });
+
+  return (
+    <div>
+      {messages.map((msg) => (
+        <div key={msg.id}>
+          <strong>{msg.role}:</strong>
+          {msg.parts
+            .filter((p) => p.type === "text")
+            .map((p, i) => (
+              <Markdown key={i}>{p.text}</Markdown>
+            ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Styling with Tailwind Typography
+
+For well-styled prose output with either renderer, use the `@tailwindcss/typography` plugin:
+
+```bash tab="pnpm"
+pnpm add @tailwindcss/typography
+```
+
+```bash tab="npm"
+npm install @tailwindcss/typography
+```
+
+```bash tab="yarn"
+yarn add @tailwindcss/typography
+```
+
+Import it in your CSS:
+
+```css
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+```
+
+Then wrap markdown output in a `prose` container:
+
+```tsx
+<div className="prose prose-sm max-w-none dark:prose-invert">
+  <StreamingMarkdown content={p.text} />
+  {/* or: <Markdown>{p.text}</Markdown> */}
+</div>
+```
+
+## Integrating with the Part Component
+
+If you're using a `<Part>` switch component (see [Display Tool Calls with Agno Agents](/docs/react/recipes/agno-agents/tool-call-rendering)), add markdown rendering to the text case:
+
+```tsx
+import type { ContentPart } from "@deltakit/react";
+import { StreamingMarkdown } from "@deltakit/markdown";
+
+function Part({ part }: { part: ContentPart }) {
+  switch (part.type) {
+    case "text":
+      return (
+        <div className="prose prose-sm max-w-none dark:prose-invert">
+          <StreamingMarkdown content={part.text} />
+        </div>
+      );
+    case "tool_call":
+      return <ToolCall part={part} />;
+    case "reasoning":
+      return <em>{part.text}</em>;
+  }
+}
+```
+
+## Choosing a Renderer
+
+| Concern | @deltakit/markdown | react-markdown |
+|---------|-------------------|----------------|
+| AI streaming | Optimized (block memoization, buffering) | Works, but re-renders everything |
+| CommonMark compliance | Partial | Full |
+| Plugin ecosystem | None | Rich (remark, rehype) |
+| Bundle size | ~3.8kb gzipped | ~35.3kb gzipped |
+| Dependencies | 0 | 11 |
+
+Use `@deltakit/markdown` when streaming performance and flicker-free rendering matter. Use `react-markdown` when you need full spec compliance or the plugin ecosystem.

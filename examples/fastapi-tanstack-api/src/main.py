@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.modules.chat.router import router as chat_router
+from src.modules.chat_agno.router import router as chat_agno_router
 
 app = FastAPI(title="FastAPI Backend", version="0.1.0")
 
@@ -14,6 +15,7 @@ app.add_middleware(
 )
 
 app.include_router(chat_router)
+app.include_router(chat_agno_router)
 
 
 @app.get("/")

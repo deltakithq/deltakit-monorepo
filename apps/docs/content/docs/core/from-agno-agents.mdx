@@ -1,0 +1,129 @@
+---
+title: fromAgnoAgents
+description: Convert Agno agent messages to DeltaKit format.
+---
+
+`fromAgnoAgents` converts Agno agent session messages into DeltaKit's `Message<ContentPart>[]` format.
+
+```ts
+import { fromAgnoAgents } from "@deltakit/core";
+```
+
+## Signature
+
+```ts
+function fromAgnoAgents(
+  messages: Record<string, unknown>[]
+): Message<ContentPart>[]
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `messages` | `Record<string, unknown>[]` | Raw messages from Agno's `aget_session_messages()` |
+
+Returns an array of `Message<ContentPart>` in chronological order.
+
+## Usage
+
+```ts
+// Load history from your Agno API
+const history = await fetch("/api/chat-agno/history").then((r) => r.json());
+
+// Convert to DeltaKit messages
+const messages = fromAgnoAgents(history);
+// => Message<ContentPart>[]
+```
+
+For using converted messages with the React hook, see [Initial Messages](/docs/react/initial-messages).
+
+## Supported Message Types
+
+The converter handles all Agno message roles:
+
+### User Messages
+
+| Role | Mapping |
+|------|---------|
+| `user` | `Message` with `TextPart` containing the message content |
+
+### Assistant Messages
+
+| Field | Mapping |
+|-------|---------|
+| `reasoning_content` | `ReasoningPart` with the thinking text |
+| `tool_calls` | `ToolCallPart[]` for each tool invocation |
+| `content` | `TextPart` with the response text |
+
+### Tool Messages
+
+| Role | Mapping |
+|------|---------|
+| `tool` | Tool result attached to matching `ToolCallPart` by tool name |
+
+## Example Message Flow
+
+```ts
+// Raw Agno messages from aget_session_messages()
+const agnoMessages = [
+  { role: "user", content: "Calculate 2+2" },
+  { 
+    role: "assistant", 
+    reasoning_content: "The user wants me to calculate...",
+    tool_calls: [{ 
+      id: "calc-1",
+      function: { name: "calculate", arguments: '{"expr":"2+2"}' }
+    }]
+  },
+  { role: "tool", tool_name: "calculate", content: "4" },
+  { role: "assistant", content: "2 + 2 = 4" }
+];
+
+// Converted to DeltaKit format
+const messages = fromAgnoAgents(agnoMessages);
+// => [
+//   { id: "agno_0", role: "user", parts: [{ type: "text", text: "Calculate 2+2" }] },
+//   { 
+//     id: "agno_1", 
+//     role: "assistant", 
+//     parts: [
+//       { type: "reasoning", text: "The user wants me to calculate..." },
+//       { type: "tool_call", tool_name: "calculate", argument: '{"expr":"2+2"}', callId: "calc-1" }
+//     ]
+//   },
+//   // Tool result gets attached to the previous tool_call
+//   { 
+//     id: "agno_3", 
+//     role: "assistant", 
+//     parts: [{ type: "text", text: "2 + 2 = 4" }] 
+//   }
+// ]
+```
+
+## Server Example (FastAPI + Agno)
+
+```python
+from fastapi import APIRouter
+from agno.agent import Agent
+from agno.models.openrouter import OpenRouter
+
+router = APIRouter()
+
+@router.get("/api/chat-agno/history")
+async def get_history():
+    agent = Agent(
+        model=OpenRouter(id="moonshotai/kimi-k2.5"),
+        session_id="my-session"
+    )
+    # Get raw Agno messages
+    messages = await agent.aget_session_messages(session_id="my-session")
+    # Return as JSON - will be deserialized into Record<string, unknown>[]
+    return messages
+```
+
+## Notes
+
+- Messages are returned in chronological order.
+- Consecutive assistant messages (reasoning, tool calls, text) are grouped into a single `Message`.
+- Tool results (role: "tool") are matched to their corresponding `ToolCallPart` by `tool_name`.
+- A new user message always starts a new message group.
+- Messages without recognized roles are silently skipped.

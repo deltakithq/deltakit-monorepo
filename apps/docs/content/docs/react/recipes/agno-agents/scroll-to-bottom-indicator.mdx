@@ -1,9 +1,9 @@
 ---
-title: Scroll to Bottom Indicator
-description: Recipe for showing a "new messages" button when users scroll up during streaming.
+title: Scroll to Bottom
+description: Recipe for showing a "new messages" button when users scroll up during streaming with Agno agents.
 ---
 
-This recipe shows how to show a scroll-to-bottom button when the user has scrolled away from the latest messages. You'll use the `isAtBottom` state from `useAutoScroll` to conditionally render a button that jumps to new content.
+This recipe shows how to show a scroll-to-bottom button when the user has scrolled away from the latest messages when using **Agno** agents on the backend. You'll use the `isAtBottom` state from `useAutoScroll` to conditionally render a button that jumps to new content.
 
 ## Problem
 
@@ -21,7 +21,7 @@ Use `useAutoScroll`'s `isAtBottom` return value combined with a positioned butto
 import { useStreamChat, useAutoScroll } from "@deltakit/react";
 
 function Chat() {
-  const { messages, sendMessage } = useStreamChat({ api: "/api/chat" });
+  const { messages, sendMessage } = useStreamChat({ api: "/api/chat-agno" });
   const { ref, scrollToBottom, isAtBottom } = useAutoScroll([messages]);
 
   return (

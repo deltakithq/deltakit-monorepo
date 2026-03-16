@@ -1,0 +1,128 @@
+---
+title: Secure Your Chat API
+description: Recipe for adding authentication with JWT tokens, handling 401 errors, and validating requests server-side with Agno agents.
+---
+
+This recipe shows how to secure your chat API with authentication when using **Agno** agents on the backend. You'll learn how to pass tokens from the client, handle unauthorized errors, and validate requests on the server.
+
+## Problem
+
+You need to:
+- Authenticate users before allowing chat access
+- Pass tokens securely from React to your API
+- Handle token expiration and refresh
+- Validate tokens on the server
+
+## Solution Overview
+
+Use the `headers` option in `useStreamChat` to send authentication tokens. Handle 401 errors with `onError`. Validate tokens server-side before processing requests.
+
+## Bearer Token
+
+The most common pattern is sending a JWT or API key via the `Authorization` header:
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+
+function Chat({ token }: { token: string }) {
+  const { messages, sendMessage } = useStreamChat({
+    api: "/api/chat-agno",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return (/* render messages */);
+}
+```
+
+## Token from Auth Context
+
+If you use a React auth provider (Auth0, Clerk, Supabase, custom), pull the token from context:
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+import { useAuth } from "./auth-context";
+
+function Chat() {
+  const { token } = useAuth();
+
+  const { messages, sendMessage } = useStreamChat({
+    api: "/api/chat-agno",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return (/* render messages */);
+}
+```
+
+The hook reads `headers` on each `sendMessage` call, so token refreshes are picked up automatically.
+
+## Handling 401 Errors
+
+Use `onError` to detect unauthorized responses and redirect or refresh:
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+import { useAuth } from "./auth-context";
+
+function Chat() {
+  const { token, refreshToken, logout } = useAuth();
+
+  const { messages, sendMessage, error } = useStreamChat({
+    api: "/api/chat-agno",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    onError: (error) => {
+      if (error.message.includes("401")) {
+        // Try refreshing the token, or redirect to login
+        refreshToken().catch(() => logout());
+      }
+    },
+  });
+
+  return (/* render messages */);
+}
+```
+
+## API Key Authentication
+
+For simpler setups with API keys:
+
+```tsx
+useStreamChat({
+  api: "/api/chat-agno",
+  headers: {
+    "X-API-Key": import.meta.env.VITE_API_KEY,
+  },
+});
+```
+
+## Server-Side Verification
+
+Your backend should validate the token on every request:
+
+```python
+# FastAPI + Agno example
+from fastapi import Request, HTTPException
+from agno.agent import Agent
+from agno.models.openrouter import OpenRouter
+
+@app.post("/api/chat-agno")
+async def chat(request: Request):
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    token = auth.split(" ")[1]
+    user = verify_token(token)  # Your verification logic
+
+    # Proceed with Agno agent
+    agent = Agent(
+        model=OpenRouter(id="moonshotai/kimi-k2.5"),
+    )
+    # ... stream response
+```

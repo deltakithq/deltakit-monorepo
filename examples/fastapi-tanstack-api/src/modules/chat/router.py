@@ -54,7 +54,6 @@ async def generate_answer(request: ChatRequest):
     async def event_generator():
         # Track reasoning state to avoid duplicates
         reasoning_buffer = ""
-        last_reasoning_len = 0
 
         async for event in runner.stream_events():
             if event.type == "raw_response_event" and isinstance(
@@ -64,7 +63,8 @@ async def generate_answer(request: ChatRequest):
 
                 # Handle text deltas
                 if isinstance(data, ResponseTextDeltaEvent) and data.delta:
-                    yield f"data: {json.dumps({'type': 'text_delta', 'delta': data.delta})}\n\n"
+                    text_data = {"type": "text_delta", "delta": data.delta}
+                    yield f"data: {json.dumps(text_data)}\n\n"
 
                 # Handle reasoning deltas - accumulate and emit only new text
                 elif hasattr(data, "type") and "reasoning" in str(data.type).lower():
@@ -75,7 +75,7 @@ async def generate_answer(request: ChatRequest):
                     elif hasattr(data, "delta") and data.delta:
                         reasoning_text = data.delta
 
-                    if reasoning_text:
+                    if reasoning_text and isinstance(reasoning_text, str):
                         # Check if this is new text or overlapping
                         if reasoning_text.startswith(reasoning_buffer) and len(
                             reasoning_text
@@ -83,11 +83,16 @@ async def generate_answer(request: ChatRequest):
                             # Only emit the new portion
                             new_text = reasoning_text[len(reasoning_buffer) :]
                             if new_text:
-                                yield f"data: {json.dumps({'type': 'reasoning', 'text': new_text})}\n\n"
+                                reasoning_data = {"type": "reasoning", "text": new_text}
+                                yield f"data: {json.dumps(reasoning_data)}\n\n"
                             reasoning_buffer = reasoning_text
                         elif reasoning_text not in reasoning_buffer:
                             # Completely new text, emit all
-                            yield f"data: {json.dumps({'type': 'reasoning', 'text': reasoning_text})}\n\n"
+                            reasoning_data = {
+                                "type": "reasoning",
+                                "text": reasoning_text,
+                            }
+                            yield f"data: {json.dumps(reasoning_data)}\n\n"
                             reasoning_buffer = reasoning_text
 
                 # Handle complete reasoning item - only if we haven't streamed it
@@ -100,7 +105,8 @@ async def generate_answer(request: ChatRequest):
 
                     # Only emit if different from what we've already sent
                     if reasoning_text and reasoning_text != reasoning_buffer:
-                        yield f"data: {json.dumps({'type': 'reasoning', 'text': reasoning_text})}\n\n"
+                        reasoning_data = {"type": "reasoning", "text": reasoning_text}
+                        yield f"data: {json.dumps(reasoning_data)}\n\n"
                         reasoning_buffer = reasoning_text
 
             elif isinstance(event, RunItemStreamEvent):

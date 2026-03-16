@@ -1,30 +1,30 @@
 import { StreamingMarkdown } from "@deltakit/markdown";
 import {
 	type ContentPart,
-	fromOpenAiAgents,
+	fromAgnoAgents,
 	useAutoScroll,
 	useStreamChat,
 } from "@deltakit/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { ToolCall } from "../components/tool-call";
 
-const API_URL = "http://localhost:8000/api/chat/";
+const API_URL = "http://localhost:8000/api/chat-agno/";
 
 async function fetchHistory() {
 	const res = await fetch(API_URL);
 	if (!res.ok) throw new Error("Failed to fetch history");
-	// Backend returns raw OpenAI Agents SDK items (TResponseInputItem[])
+	// Backend returns raw Agno messages
 	// We need to convert them to DeltaKit Message format
-	const openAiItems = await res.json();
-	return fromOpenAiAgents(openAiItems);
+	const messages = await res.json();
+	return fromAgnoAgents(messages);
 }
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/chat-agno")({
 	loader: () => fetchHistory(),
-	component: Chat,
+	component: ChatAgno,
 });
 
-function Chat() {
+function ChatAgno() {
 	const initialMessages = Route.useLoaderData();
 
 	// Define custom event types for the demo
@@ -131,7 +131,7 @@ function Chat() {
 					<div className="space-y-4 pb-4">
 						{messages.length === 0 && (
 							<p className="mt-8 text-center text-neutral-500">
-								Start a conversation.
+								Start a conversation with Agno.
 							</p>
 						)}
 						{messages.map((msg) => (
@@ -144,7 +144,7 @@ function Chat() {
 										case "text":
 											return (
 												<div
-													key={`text-${partIndex}`}
+													key={"text-${partIndex}"}
 													className="prose prose-invert prose-sm max-w-none"
 												>
 													<StreamingMarkdown content={part.text} batchMs={8} />
@@ -153,7 +153,7 @@ function Chat() {
 										case "tool_call":
 											return (
 												<ToolCall
-													key={`tool_call-${partIndex}`}
+													key={"tool_call-${partIndex}"}
 													argument={part.argument}
 													result={part.result}
 												/>
@@ -165,7 +165,7 @@ function Chat() {
 											};
 											return (
 												<div
-													key={`reasoning-${partIndex}`}
+													key={"reasoning-${partIndex}"}
 													className="rounded border border-neutral-700 bg-neutral-800/50 p-3 text-sm text-neutral-400 italic"
 												>
 													<div className="flex items-center gap-2 mb-2">

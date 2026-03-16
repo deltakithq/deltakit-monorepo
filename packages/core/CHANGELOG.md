@@ -1,5 +1,11 @@
 # @deltakit/core
 
+## 0.2.0
+
+### Minor Changes
+
+- Add fromAgnoAgents converter for Agno agent framework support
+
 ## 0.1.3
 
 ### Patch Changes

@@ -1,0 +1,137 @@
+---
+title: Load Chat History
+description: Recipe for loading previous conversations from Agno agent backend.
+---
+
+This recipe shows how to load existing conversations when using **Agno** agent framework on your backend. You'll fetch history from the API, convert the format using `fromAgnoAgents`, and initialize the chat.
+
+## Problem
+
+Agno stores conversation history in its own format with fields like `reasoning_content`, `tool_calls`, and `tool_name`. You need to:
+- Fetch conversation history from your API
+- Handle loading states gracefully  
+- Convert between different message formats
+- Initialize the chat with the loaded messages
+
+## Solution
+
+Use `fromAgnoAgents` to convert Agno session messages into DeltaKit messages.
+
+## Frontend Implementation
+
+```tsx
+import { fromAgnoAgents, useStreamChat } from "@deltakit/react";
+import { useState, useEffect } from "react";
+
+async function fetchHistory() {
+  const res = await fetch("/api/chat-agno/");
+  const agnoMessages = await res.json();
+  return fromAgnoAgents(agnoMessages);
+}
+
+function Chat() {
+  const [initialMessages, setInitialMessages] = useState([]);
+
+  useEffect(() => {
+    fetchHistory().then(setInitialMessages);
+  }, []);
+
+  const { messages, sendMessage } = useStreamChat({
+    api: "/api/chat-agno",
+    initialMessages,
+  });
+
+  return (/* render messages */);
+}
+```
+
+## Backend Implementation (FastAPI + Agno)
+
+```python
+from fastapi import APIRouter
+from agno.agent import Agent
+from agno.db.sqlite import SqliteDb
+from agno.models.openrouter import OpenRouter
+
+router = APIRouter()
+
+storage = SqliteDb(
+    session_table="agno_agent_sessions",
+    db_file="./dev.db",
+)
+
+@router.get("/api/chat-agno/")
+async def get_history():
+    agent = Agent(
+        model=OpenRouter(id="moonshotai/kimi-k2.5"),
+        db=storage,
+        session_id="default-agno",
+    )
+    try:
+        messages = await agent.aget_session_messages(
+            session_id="default-agno"
+        )
+        return messages
+    except Exception:
+        return []
+```
+
+## TanStack Router Integration
+
+With TanStack Router's loader:
+
+```tsx
+import { fromAgnoAgents } from "@deltakit/react";
+import { createFileRoute } from "@tanstack/react-router";
+
+const API_URL = "http://localhost:8000/api/chat-agno/";
+
+async function fetchHistory() {
+  const res = await fetch(API_URL);
+  if (!res.ok) throw new Error("Failed to fetch history");
+  const agnoMessages = await res.json();
+  return fromAgnoAgents(agnoMessages);
+}
+
+export const Route = createFileRoute("/chat-agno")({
+  loader: () => fetchHistory(),
+  component: ChatAgno,
+});
+
+function ChatAgno() {
+  const initialMessages = Route.useLoaderData();
+  
+  const { messages, sendMessage } = useStreamChat({
+    api: API_URL,
+    initialMessages,
+  });
+  
+  return (/* render messages */);
+}
+```
+
+## What Gets Converted
+
+`fromAgnoAgents` handles all Agno message types:
+
+| Agno Field | DeltaKit Part |
+|-----------|---------------|
+| User `content` | `TextPart` |
+| Assistant `content` | `TextPart` |
+| Assistant `reasoning_content` | `ReasoningPart` |
+| Assistant `tool_calls` | `ToolCallPart[]` |
+| Tool `content` | Attached to matching `ToolCallPart.result` |
+
+## Notes
+
+- `initialMessages` is only read on the first render
+- To reset the conversation, use `setMessages`:
+
+```tsx
+const { setMessages } = useStreamChat({ api: "/api/chat-agno" });
+setMessages(newMessages);
+```
+
+## Related
+
+- [fromAgnoAgents](/docs/core/from-agno-agents) - Full converter reference

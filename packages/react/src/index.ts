@@ -10,7 +10,11 @@ export type {
 	ToolCallPart,
 	ToolResultEvent,
 } from "@deltakit/core";
-export { fromOpenAiAgents, parseSSEStream } from "@deltakit/core";
+export {
+	fromAgnoAgents,
+	fromOpenAiAgents,
+	parseSSEStream,
+} from "@deltakit/core";
 
 export type {
 	EventHelpers,

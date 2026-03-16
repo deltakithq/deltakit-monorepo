@@ -9,8 +9,14 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/__root";
+import { Route as ChatAgnoRouteImport } from "./routes/chat-agno";
 import { Route as IndexRouteImport } from "./routes/index";
 
+const ChatAgnoRoute = ChatAgnoRouteImport.update({
+	id: "/chat-agno",
+	path: "/chat-agno",
+	getParentRoute: () => rootRouteImport,
+} as any);
 const IndexRoute = IndexRouteImport.update({
 	id: "/",
 	path: "/",
@@ -19,28 +25,39 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
 	"/": typeof IndexRoute;
+	"/chat-agno": typeof ChatAgnoRoute;
 }
 export interface FileRoutesByTo {
 	"/": typeof IndexRoute;
+	"/chat-agno": typeof ChatAgnoRoute;
 }
 export interface FileRoutesById {
 	__root__: typeof rootRouteImport;
 	"/": typeof IndexRoute;
+	"/chat-agno": typeof ChatAgnoRoute;
 }
 export interface FileRouteTypes {
 	fileRoutesByFullPath: FileRoutesByFullPath;
-	fullPaths: "/";
+	fullPaths: "/" | "/chat-agno";
 	fileRoutesByTo: FileRoutesByTo;
-	to: "/";
-	id: "__root__" | "/";
+	to: "/" | "/chat-agno";
+	id: "__root__" | "/" | "/chat-agno";
 	fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
 	IndexRoute: typeof IndexRoute;
+	ChatAgnoRoute: typeof ChatAgnoRoute;
 }
 
 declare module "@tanstack/react-router" {
 	interface FileRoutesByPath {
+		"/chat-agno": {
+			id: "/chat-agno";
+			path: "/chat-agno";
+			fullPath: "/chat-agno";
+			preLoaderRoute: typeof ChatAgnoRouteImport;
+			parentRoute: typeof rootRouteImport;
+		};
 		"/": {
 			id: "/";
 			path: "/";
@@ -53,6 +70,7 @@ declare module "@tanstack/react-router" {
 
 const rootRouteChildren: RootRouteChildren = {
 	IndexRoute: IndexRoute,
+	ChatAgnoRoute: ChatAgnoRoute,
 };
 export const routeTree = rootRouteImport
 	._addFileChildren(rootRouteChildren)

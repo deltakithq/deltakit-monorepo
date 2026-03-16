@@ -1,7 +1,10 @@
 import json
 from typing import Literal
 
-from agents import function_tool
+from agno.agent import Agent
+from agno.db.sqlite import SqliteDb
+from agno.models.openrouter import OpenRouter
+from agno.tools import tool
 from tavily import TavilyClient
 
 from src.core.settings import settings
@@ -9,8 +12,8 @@ from src.core.settings import settings
 tavily_client = TavilyClient(api_key=settings.TAVILY_API_KEY)
 
 
-@function_tool
-def search_web(query: str, label: str | None = None):
+@tool
+def search_web(query: str, label: str | None = None) -> str:
     """
     Search the web for information using Tavily API.
 
@@ -21,7 +24,7 @@ def search_web(query: str, label: str | None = None):
     return json.dumps(results)
 
 
-@function_tool
+@tool
 def crawl_website(
     url: str,
     instructions: str = "",
@@ -29,7 +32,7 @@ def crawl_website(
     max_breadth: int = 20,
     limit: int = 50,
     label: str | None = None,
-):
+) -> str:
     """
     Crawl a website to discover and extract content from multiple pages.
     Uses Tavily's graph-based crawler to explore pages in parallel.
@@ -52,13 +55,13 @@ def crawl_website(
     return json.dumps(results)
 
 
-@function_tool
+@tool
 def extract_webpage(
     urls: str | list[str],
     extract_depth: Literal["basic", "advanced"] = "basic",
     include_images: bool = False,
     label: str | None = None,
-):
+) -> str:
     """
     Extract content from one or more specific URLs.
     Use this for scraping content from known pages.
@@ -75,3 +78,34 @@ def extract_webpage(
         include_images=include_images,
     )
     return json.dumps(results)
+
+
+SYSTEM_PROMPT = """
+You are a helpful assistant.
+
+- Be verbose.
+- Tell what user what you will do before calling a tool.
+"""
+
+
+# Initialize storage
+storage = SqliteDb(
+    session_table="agno_agent_sessions",
+    db_file="./dev.db",
+)
+
+
+def get_agent(session_id: str = "default") -> Agent:
+    """Create and return an Agno agent configured for the given session."""
+    return Agent(
+        model=OpenRouter(
+            id="moonshotai/kimi-k2.5",
+            api_key=settings.OPENROUTER_API_KEY,
+        ),
+        tools=[search_web, crawl_website, extract_webpage],
+        instructions=SYSTEM_PROMPT,
+        db=storage,
+        session_id=session_id,
+        add_history_to_context=True,
+        markdown=True,
+    )

@@ -1,0 +1,196 @@
+---
+title: Display Tool Calls
+description: Recipe for displaying tool calls in your chat UI with loading states and results using Agno agents.
+---
+
+This recipe shows how to display tool calls in your chat UI with loading states and results when using **Agno** agents on the backend. You'll handle `tool_call` and `tool_result` events, then render them as rich UI components.
+
+## Handling Tool Call Events
+
+First, set up `onEvent` to process `tool_call` and `tool_result` events:
+
+```tsx
+import { useStreamChat } from "@deltakit/react";
+
+const { messages } = useStreamChat({
+  api: "/api/chat-agno",
+  onEvent: (event, { appendText, appendPart, setMessages }) => {
+    switch (event.type) {
+      case "text_delta":
+        appendText(event.delta);
+        break;
+
+      case "tool_call":
+        appendPart({
+          type: "tool_call",
+          tool_name: event.tool_name,
+          argument: event.argument,
+          callId: event.call_id,
+        });
+        break;
+
+      case "tool_result":
+        setMessages((msgs) => {
+          const last = msgs[msgs.length - 1];
+          if (last?.role !== "assistant") return msgs;
+
+          const updatedParts = last.parts.map((part) => {
+            if (part.type === "tool_call" && part.callId === event.call_id) {
+              return { ...part, result: event.output };
+            }
+            return part;
+          });
+
+          return [...msgs.slice(0, -1), { ...last, parts: updatedParts }];
+        });
+        break;
+    }
+  },
+});
+```
+
+When you provide `onEvent`, it **replaces** the default handler. You must handle `text_delta` yourself.
+
+## Backend Implementation (FastAPI + Agno)
+
+Your Agno backend emits tool events using `ToolCallStarted` and `ToolCallCompleted`:
+
+```python
+import json
+from fastapi import APIRouter, Request
+from fastapi.responses import StreamingResponse
+from agno.agent import Agent
+from agno.models.openrouter import OpenRouter
+
+router = APIRouter()
+
+@router.post("/api/chat-agno/")
+async def chat(request: Request):
+    body = await request.json()
+    message = body.get("message", "")
+
+    agent = Agent(
+        model=OpenRouter(id="moonshotai/kimi-k2.5"),
+    )
+
+    async def event_generator():
+        async for event in agent.arun(
+            message,
+            stream=True,
+            stream_events=True,
+        ):
+            if not hasattr(event, "event"):
+                continue
+
+            event_type = event.event
+
+            if event_type == "RunContent":
+                if hasattr(event, "content") and event.content:
+                    yield f'data: {json.dumps({"type": "text_delta", "delta": event.content})}\n\n'
+
+            elif event_type == "ToolCallStarted":
+                yield f'data: {json.dumps({"type": "tool_call", "tool_name": event.tool_name, "argument": json.dumps(event.tool_args), "call_id": event.call_id})}\n\n'
+
+            elif event_type == "ToolCallCompleted":
+                yield f'data: {json.dumps({"type": "tool_result", "call_id": event.call_id, "output": str(event.content)})}\n\n'
+
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream"
+    )
+```
+
+## Rendering Parts
+
+Build a switch component that renders each content part type:
+
+```tsx
+import type { ContentPart } from "@deltakit/react";
+
+function Part({ part }: { part: ContentPart }) {
+  switch (part.type) {
+    case "text":
+      return <p>{part.text}</p>;
+    case "tool_call":
+      return <ToolCall part={part} />;
+    case "reasoning":
+      return <em>{part.text}</em>;
+  }
+}
+```
+
+Use it in your message list:
+
+```tsx
+{messages.map((msg) => (
+  <div key={msg.id}>
+    <strong>{msg.role}:</strong>
+    {msg.parts.map((part, i) => (
+      <Part key={i} part={part} />
+    ))}
+  </div>
+))}
+```
+
+## Tool Call Component
+
+A `ToolCallPart` has this shape:
+
+```ts
+interface ToolCallPart {
+  type: "tool_call";
+  tool_name: string;   // e.g. "get_weather"
+  argument: string;    // JSON string of arguments
+  callId?: string;     // Links to tool_result
+  result?: string;     // Filled when the result arrives
+}
+```
+
+Render it with a loading/result state:
+
+```tsx
+import type { ToolCallPart } from "@deltakit/react";
+
+function ToolCall({ part }: { part: ToolCallPart }) {
+  // Parse the JSON argument for display
+  let args: Record<string, unknown> = {};
+  try {
+    args = JSON.parse(part.argument);
+  } catch {
+    // ignore parse errors
+  }
+
+  return (
+    <div style={{ background: "#f5f5f5", padding: 12, borderRadius: 8, margin: "8px 0" }}>
+      <strong>{part.tool_name}</strong>
+      <pre style={{ fontSize: 12 }}>{JSON.stringify(args, null, 2)}</pre>
+      {part.result ? (
+        <div>Result: {part.result}</div>
+      ) : (
+        <div style={{ color: "#888" }}>Running...</div>
+      )}
+    </div>
+  );
+}
+```
+
+## Multiple Tool Calls
+
+A single response can contain multiple tool calls. Each arrives as a separate `tool_call`/`tool_result` event pair, linked by `callId`:
+
+```
+data: {"type":"tool_call","tool_name":"search","argument":"...","call_id":"call_1"}
+data: {"type":"tool_result","call_id":"call_1","output":"..."}
+data: {"type":"tool_call","tool_name":"calculate","argument":"...","call_id":"call_2"}
+data: {"type":"tool_result","call_id":"call_2","output":"..."}
+data: {"type":"text_delta","delta":"Based on the results..."}
+data: [DONE]
+```
+
+All parts end up in the same assistant message's `parts` array, rendered in order.
+
+## Server Setup
+
+See [Tool Calls (Protocol)](/docs/core/tool-calls) for the server-side SSE format and a full FastAPI example.

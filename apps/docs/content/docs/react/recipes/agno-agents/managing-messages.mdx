@@ -1,27 +1,55 @@
 ---
-title: Manage Conversation Messages
-description: Recipe for implementing clear, delete, edit, resend, and insert operations on chat messages.
+title: Manage Messages
+description: Recipe for implementing clear, delete, edit, resend, and insert operations on chat messages with Agno agents.
 ---
 
-This recipe shows how to implement common message management operations using the `setMessages` API. You'll build UI controls for clearing conversations, deleting messages, editing content, and resending failed messages.
+This recipe shows how to implement common message management operations using the `setMessages` API when using **Agno** agents on the backend. You'll build UI controls for clearing conversations, deleting messages, editing content, and resending failed messages.
 
 ## Clearing the Conversation
 
 ```tsx
-const { setMessages } = useStreamChat({ api: "/api/chat" });
+const { setMessages } = useStreamChat({ api: "/api/chat-agno" });
 
 function handleClear() {
   setMessages([]);
 }
 ```
 
-If your backend tracks conversation state, clear it too:
+If your Agno backend tracks conversation state, clear it too:
 
 ```tsx
 async function handleClear() {
-  await fetch("/api/chat/clear", { method: "POST" });
+  await fetch("/api/chat-agno/clear", { method: "POST" });
   setMessages([]);
 }
+```
+
+### Backend Clear Endpoint (FastAPI + Agno)
+
+```python
+from fastapi import APIRouter
+from agno.agent import Agent
+from agno.db.sqlite import SqliteDb
+from agno.models.openrouter import OpenRouter
+
+router = APIRouter()
+
+SESSION_ID = "default-agno"
+
+storage = SqliteDb(
+    session_table="agno_agent_sessions",
+    db_file="./dev.db",
+)
+
+@router.post("/api/chat-agno/clear")
+async def clear_history():
+    agent = Agent(
+        model=OpenRouter(id="moonshotai/kimi-k2.5"),
+        db=storage,
+        session_id=SESSION_ID,
+    )
+    agent.db.delete_session(session_id=SESSION_ID)
+    return {"status": "cleared"}
 ```
 
 ## Removing a Message
@@ -64,7 +92,7 @@ A common pattern is editing the last user message and re-triggering the response
 
 ```tsx
 const { messages, setMessages, sendMessage } = useStreamChat({
-  api: "/api/chat",
+  api: "/api/chat-agno",
 });
 
 function handleResend() {

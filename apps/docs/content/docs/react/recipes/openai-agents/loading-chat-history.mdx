@@ -1,0 +1,129 @@
+---
+title: Load Chat History
+description: Recipe for loading previous conversations from OpenAI Agents SDK backend.
+---
+
+This recipe shows how to load existing conversations when using the **OpenAI Agents SDK** on your backend. You'll fetch history from the API, convert the format using `fromOpenAiAgents`, and initialize the chat.
+
+## Problem
+
+The OpenAI Agents SDK stores conversation history in a different format (`TResponseInputItem[]`) than DeltaKit's `Message[]`. You need to:
+- Fetch conversation history from your API
+- Handle loading states gracefully  
+- Convert between different message formats
+- Initialize the chat with the loaded messages
+
+## Solution
+
+Use `fromOpenAiAgents` to convert OpenAI Agents SDK items into DeltaKit messages.
+
+## Frontend Implementation
+
+```tsx
+import { fromOpenAiAgents, useStreamChat } from "@deltakit/react";
+import { useState, useEffect } from "react";
+
+async function fetchHistory() {
+  const res = await fetch("/api/chat/");
+  const openAiItems = await res.json();
+  return fromOpenAiAgents(openAiItems);
+}
+
+function Chat() {
+  const [initialMessages, setInitialMessages] = useState([]);
+
+  useEffect(() => {
+    fetchHistory().then(setInitialMessages);
+  }, []);
+
+  const { messages, sendMessage } = useStreamChat({
+    api: "/api/chat",
+    initialMessages,
+  });
+
+  return (/* render messages */);
+}
+```
+
+## Backend Implementation (FastAPI)
+
+```python
+from fastapi import APIRouter
+from agents.extensions.memory import SQLAlchemySession
+from sqlalchemy import create_engine
+
+router = APIRouter()
+engine = create_engine("sqlite:///chat.db")
+
+@router.get("/api/chat/")
+async def get_history():
+    session = SQLAlchemySession(
+        session_id="default",
+        engine=engine,
+        create_tables=True,
+    )
+    items = await session.get_items()
+    return items
+```
+
+## TanStack Router Integration
+
+With TanStack Router's loader:
+
+```tsx
+import { fromOpenAiAgents } from "@deltakit/react";
+import { createFileRoute } from "@tanstack/react-router";
+
+const API_URL = "http://localhost:8000/api/chat/";
+
+async function fetchHistory() {
+  const res = await fetch(API_URL);
+  if (!res.ok) throw new Error("Failed to fetch history");
+  const openAiItems = await res.json();
+  return fromOpenAiAgents(openAiItems);
+}
+
+export const Route = createFileRoute("/")({
+  loader: () => fetchHistory(),
+  component: Chat,
+});
+
+function Chat() {
+  const initialMessages = Route.useLoaderData();
+  
+  const { messages, sendMessage } = useStreamChat({
+    api: API_URL,
+    initialMessages,
+  });
+  
+  return (/* render messages */);
+}
+```
+
+## What Gets Converted
+
+`fromOpenAiAgents` handles all OpenAI Agents SDK item types:
+
+| Item Type | DeltaKit Part |
+|-----------|---------------|
+| User messages | `TextPart` |
+| Assistant messages | `TextPart`, `ReasoningPart`, `ToolCallPart` |
+| Tool calls | `ToolCallPart` |
+| Tool outputs | Attached to matching `ToolCallPart.result` |
+| Reasoning | `ReasoningPart` |
+
+## Notes
+
+- `initialMessages` is only read on the first render
+- To reset the conversation, use `setMessages`:
+
+```tsx
+const { setMessages } = useStreamChat({ api: "/api/chat" });
+
+// Reset with new history
+setMessages(newMessages);
+```
+
+## Related
+
+- [fromOpenAiAgents](/docs/core/from-openai-agents) - Full converter reference
