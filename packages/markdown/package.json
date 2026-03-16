@@ -1,6 +1,6 @@
 {
 	"name": "@deltakit/markdown",
-	"version": "0.1.7",
+	"version": "0.1.8",
 	"description": "Stream markdown in AI chat without flicker or broken syntax",
 	"homepage": "https://deltakit.dev",
 	"type": "module",
