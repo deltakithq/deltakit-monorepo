@@ -193,7 +193,7 @@ function renderList(
 	for (const line of lines) {
 		const content = line
 			.replace(/^\s*[-*+]\s+/, "")
-			.replace(/^\s*\d+\.\s+/, "");
+			.replace(/^\s*\d+\.\s+(?![\d.])/, "");
 		// Skip empty list items during streaming to prevent choppy bullets
 		if (content.trim().length === 0) continue;
 		const inlineNodes = renderInlineTokens(parseInline(content), components);

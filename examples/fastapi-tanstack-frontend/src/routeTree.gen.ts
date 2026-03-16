@@ -8,80 +8,79 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root";
-import { Route as ChatAgnoRouteImport } from "./routes/chat-agno";
-import { Route as IndexRouteImport } from "./routes/index";
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as ChatAgnoRouteImport } from './routes/chat-agno'
+import { Route as IndexRouteImport } from './routes/index'
 
 const ChatAgnoRoute = ChatAgnoRouteImport.update({
-	id: "/chat-agno",
-	path: "/chat-agno",
-	getParentRoute: () => rootRouteImport,
-} as any);
+  id: '/chat-agno',
+  path: '/chat-agno',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
-	id: "/",
-	path: "/",
-	getParentRoute: () => rootRouteImport,
-} as any);
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
-	"/": typeof IndexRoute;
-	"/chat-agno": typeof ChatAgnoRoute;
+  '/': typeof IndexRoute
+  '/chat-agno': typeof ChatAgnoRoute
 }
 export interface FileRoutesByTo {
-	"/": typeof IndexRoute;
-	"/chat-agno": typeof ChatAgnoRoute;
+  '/': typeof IndexRoute
+  '/chat-agno': typeof ChatAgnoRoute
 }
 export interface FileRoutesById {
-	__root__: typeof rootRouteImport;
-	"/": typeof IndexRoute;
-	"/chat-agno": typeof ChatAgnoRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/chat-agno': typeof ChatAgnoRoute
 }
 export interface FileRouteTypes {
-	fileRoutesByFullPath: FileRoutesByFullPath;
-	fullPaths: "/" | "/chat-agno";
-	fileRoutesByTo: FileRoutesByTo;
-	to: "/" | "/chat-agno";
-	id: "__root__" | "/" | "/chat-agno";
-	fileRoutesById: FileRoutesById;
+  fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths: '/' | '/chat-agno'
+  fileRoutesByTo: FileRoutesByTo
+  to: '/' | '/chat-agno'
+  id: '__root__' | '/' | '/chat-agno'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-	IndexRoute: typeof IndexRoute;
-	ChatAgnoRoute: typeof ChatAgnoRoute;
+  IndexRoute: typeof IndexRoute
+  ChatAgnoRoute: typeof ChatAgnoRoute
 }
 
-declare module "@tanstack/react-router" {
-	interface FileRoutesByPath {
-		"/chat-agno": {
-			id: "/chat-agno";
-			path: "/chat-agno";
-			fullPath: "/chat-agno";
-			preLoaderRoute: typeof ChatAgnoRouteImport;
-			parentRoute: typeof rootRouteImport;
-		};
-		"/": {
-			id: "/";
-			path: "/";
-			fullPath: "/";
-			preLoaderRoute: typeof IndexRouteImport;
-			parentRoute: typeof rootRouteImport;
-		};
-	}
+declare module '@tanstack/react-router' {
+  interface FileRoutesByPath {
+    '/chat-agno': {
+      id: '/chat-agno'
+      path: '/chat-agno'
+      fullPath: '/chat-agno'
+      preLoaderRoute: typeof ChatAgnoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+  }
 }
 
 const rootRouteChildren: RootRouteChildren = {
-	IndexRoute: IndexRoute,
-	ChatAgnoRoute: ChatAgnoRoute,
-};
+  IndexRoute: IndexRoute,
+  ChatAgnoRoute: ChatAgnoRoute,
+}
 export const routeTree = rootRouteImport
-	._addFileChildren(rootRouteChildren)
-	._addFileTypes<FileRouteTypes>();
+  ._addFileChildren(rootRouteChildren)
+  ._addFileTypes<FileRouteTypes>()
 
-import type { createStart } from "@tanstack/react-start";
-import type { getRouter } from "./router.tsx";
-
-declare module "@tanstack/react-start" {
-	interface Register {
-		ssr: true;
-		router: Awaited<ReturnType<typeof getRouter>>;
-	}
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
 }

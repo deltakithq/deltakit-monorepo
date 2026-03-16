@@ -447,4 +447,69 @@ describe("parseIncremental", () => {
 			}
 		});
 	});
+
+	describe("version number handling", () => {
+		it("should not treat version numbers as ordered list items", () => {
+			const result = parseIncremental("Node.js v25.0 and npm 11.8.0");
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("paragraph");
+			expect(result.blocks[0].raw).toBe("Node.js v25.0 and npm 11.8.0");
+		});
+
+		it("should handle IP addresses correctly", () => {
+			const result = parseIncremental("Server at 192.168.1.1 is online");
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("paragraph");
+			expect(result.blocks[0].raw).toBe("Server at 192.168.1.1 is online");
+		});
+
+		it("should handle decimal numbers correctly", () => {
+			const result = parseIncremental("The value is 3.14 or 2.718");
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("paragraph");
+			expect(result.blocks[0].raw).toBe("The value is 3.14 or 2.718");
+		});
+
+		it("should handle semantic versions correctly", () => {
+			const result = parseIncremental("version 2.1.0-beta.3");
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("paragraph");
+			expect(result.blocks[0].raw).toBe("version 2.1.0-beta.3");
+		});
+
+		it("should still parse real ordered lists correctly", () => {
+			const result = parseIncremental(
+				"1. First item\n2. Second item\n3. Third item",
+			);
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("list");
+			expect(result.blocks[0].listStyle).toBe("ordered");
+		});
+
+		it("should handle larger list numbers", () => {
+			const result = parseIncremental(
+				"25. Twenty-fifth item\n99. Ninety-ninth item",
+			);
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("list");
+			expect(result.blocks[0].listStyle).toBe("ordered");
+		});
+
+		it("should handle streaming chunks with version numbers", () => {
+			// Simulate streaming: "11.8.0 Let me create..." as a chunk
+			const result = parseIncremental(".8.0 Let me create the app");
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("paragraph");
+			expect(result.blocks[0].raw).toBe(".8.0 Let me create the app");
+		});
+
+		it("should handle mixed content with versions and lists", () => {
+			const content = "1. Install Node.js v18.0.0\n2. Run npm install";
+			const result = parseIncremental(content);
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("list");
+			expect(result.blocks[0].raw).toContain("Install Node.js v18.0.0");
+			expect(result.blocks[0].raw).toContain("Run npm install");
+		});
+	});
 });

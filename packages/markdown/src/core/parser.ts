@@ -408,7 +408,7 @@ function splitLines(content: string): string[] {
 /** Check if a line is a list item */
 function isListItem(line: string): boolean {
 	const trimmed = line.trimStart();
-	return /^[-*+]\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed);
+	return /^[-*+]\s+/.test(trimmed) || /^\d+\.\s+(?![\d.])/.test(trimmed);
 }
 
 /** Check if a line is a continuation of a list item (indented) */
