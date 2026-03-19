@@ -1,5 +1,11 @@
 # @deltakit/react
 
+## 0.2.1
+
+### Patch Changes
+
+- 3ddc9be: docs: add stop/cancel support documentation for websocket and background-sse transports
+
 ## 0.2.0
 
 ### Minor Changes
