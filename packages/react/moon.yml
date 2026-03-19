@@ -33,8 +33,12 @@ tasks:
       - 'biome.json'
 
   test:
-    command: 'echo'
-    args: ['No tests for react package']
+    command: 'pnpm'
+    args: ['exec', 'vitest', 'run']
+    inputs:
+      - 'src/**/*'
+      - 'tests/**/*'
+      - 'vitest.config.ts'
 
   typecheck:
     command: 'pnpm'
