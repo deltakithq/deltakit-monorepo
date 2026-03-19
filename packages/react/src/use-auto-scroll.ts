@@ -29,17 +29,25 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 	// call scrollTo() more than once per frame, no matter how many
 	// MutationObserver / ResizeObserver callbacks fire.
 	const rafRef = useRef<number | null>(null);
+	const lastAutoScrollHeightRef = useRef<number | null>(null);
 
 	const scheduleScroll = useCallback(() => {
 		if (rafRef.current != null) return;
 		rafRef.current = requestAnimationFrame(() => {
 			rafRef.current = null;
 			const el = ref.current;
-			if (el && isAtBottomRef.current) {
-				el.scrollTo({ top: el.scrollHeight, behavior });
-			}
+			if (!el || !isAtBottomRef.current) return;
+
+			const nextHeight = el.scrollHeight;
+			if (lastAutoScrollHeightRef.current === nextHeight) return;
+
+			lastAutoScrollHeightRef.current = nextHeight;
+
+			// Keep the viewport pinned during streaming without restarting a
+			// smooth scroll animation on every DOM mutation.
+			el.scrollTop = nextHeight;
 		});
-	}, [behavior]);
+	}, []);
 
 	// -----------------------------------------------------------------------
 	// Track whether the user is near the bottom via scroll events.
@@ -54,10 +62,14 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 			const atBottom =
 				el.scrollHeight - el.scrollTop - el.clientHeight <= threshold;
 			isAtBottomRef.current = atBottom;
+			if (!atBottom) {
+				lastAutoScrollHeightRef.current = null;
+			}
 			setIsAtBottom((prev) => (prev === atBottom ? prev : atBottom));
 		};
 
 		el.addEventListener("scroll", handleScroll, { passive: true });
+		handleScroll();
 		return () => el.removeEventListener("scroll", handleScroll);
 	}, [enabled, threshold]);
 
@@ -132,6 +144,7 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 		if (!el) return;
 
 		isAtBottomRef.current = true;
+		lastAutoScrollHeightRef.current = el.scrollHeight;
 		setIsAtBottom(true);
 		el.scrollTo({ top: el.scrollHeight, behavior });
 	}, [behavior]);

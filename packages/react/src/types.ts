@@ -284,7 +284,7 @@ export interface UseStreamChatReturn<
 // ---------------------------------------------------------------------------
 
 export interface UseAutoScrollOptions {
-	/** Scroll behavior when auto-scrolling. Default: `"instant"`. */
+	/** Scroll behavior for explicit `scrollToBottom()` calls. Default: `"instant"`. */
 	behavior?: ScrollBehavior;
 
 	/** Whether auto-scroll is enabled. Default: `true`. */
