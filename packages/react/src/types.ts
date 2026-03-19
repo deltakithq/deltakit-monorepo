@@ -20,6 +20,182 @@ export interface EventHelpers<TPart extends { type: string } = ContentPart> {
 }
 
 // ---------------------------------------------------------------------------
+// Transports
+// ---------------------------------------------------------------------------
+
+export interface ChatTransportRun {
+	/** Transport-specific run id for resumable backends. */
+	runId?: string | null;
+
+	/** Close local resources such as fetch streams or sockets. */
+	close?: () => void | Promise<void>;
+
+	/** Request cancellation when the backend supports it. */
+	stop?: () => void | Promise<void>;
+}
+
+export interface ChatTransportContext<
+	TPart extends { type: string } = ContentPart,
+	TEvent extends { type: string } = SSEEvent,
+> {
+	/** Emit a normalized event into the shared chat controller. */
+	emit: (event: TEvent) => void;
+
+	/** Mark the run as complete. */
+	finish: () => void;
+
+	/** Surface a transport error through the hook. */
+	fail: (error: Error) => void;
+
+	/** Ensure there is an assistant message available for streamed parts. */
+	ensureAssistantMessage: () => void;
+
+	/** Read the latest message state. */
+	getMessages: () => Message<TPart>[];
+
+	/** Update the active run id. */
+	setRunId: (runId: string | null) => void;
+}
+
+export interface ChatTransportStartArgs<
+	TPart extends { type: string } = ContentPart,
+	TEvent extends { type: string } = SSEEvent,
+> {
+	message: string;
+	context: ChatTransportContext<TPart, TEvent>;
+}
+
+export interface ChatTransportResumeArgs<
+	TPart extends { type: string } = ContentPart,
+	TEvent extends { type: string } = SSEEvent,
+> {
+	runId: string;
+	context: ChatTransportContext<TPart, TEvent>;
+}
+
+export interface ChatTransport<
+	TPart extends { type: string } = ContentPart,
+	TEvent extends { type: string } = SSEEvent,
+> {
+	start: (
+		args: ChatTransportStartArgs<TPart, TEvent>,
+	) => ChatTransportRun | undefined;
+	resume?: (
+		args: ChatTransportResumeArgs<TPart, TEvent>,
+	) => ChatTransportRun | undefined;
+}
+
+export interface DirectSSETransportOptions {
+	/** SSE endpoint URL. */
+	api: string;
+
+	/** Extra fetch headers merged into every POST request. */
+	headers?: Record<string, string>;
+
+	/** Extra fields merged into the POST body alongside `message`. */
+	body?: Record<string, unknown>;
+
+	/** Override the HTTP method used to start the stream. Default: `POST`. */
+	method?: string;
+
+	/** Override the global `fetch` implementation. */
+	fetch?: typeof fetch;
+}
+
+export type RunIdResolver = (response: unknown) => string;
+
+export type RunUrlResolver = string | ((runId: string) => string);
+
+export interface BackgroundSSETransportOptions {
+	/** Endpoint that starts a background job and returns a run id. */
+	startApi: string;
+
+	/** Endpoint used to connect to SSE events for a run id. */
+	eventsApi: RunUrlResolver;
+
+	/** Endpoint to cancel a running job. Called with POST when `stop()` is invoked. */
+	cancelApi?: RunUrlResolver;
+
+	/** Optional status endpoint for consumers that poll metadata out-of-band. */
+	statusApi?: RunUrlResolver;
+
+	/** Extra headers sent to the start request. */
+	startHeaders?: Record<string, string>;
+
+	/** Extra body fields merged into the start request alongside `message`. */
+	startBody?: Record<string, unknown>;
+
+	/** Extra headers sent when connecting to the SSE events endpoint. */
+	eventHeaders?: Record<string, string>;
+
+	/** Override the HTTP method used to start the background job. Default: `POST`. */
+	startMethod?: string;
+
+	/** Extract the run id from the start response. Defaults to `runId` or `job_id`. */
+	resolveRunId?: RunIdResolver;
+
+	/** Persisted run id to resume immediately on mount. */
+	runId?: string | null;
+
+	/** Read a persisted run id during mount. */
+	getResumeKey?: () => string | null | undefined;
+
+	/** Persist run id updates so the app can reconnect later. */
+	onRunIdChange?: (runId: string | null) => void;
+
+	/** Override the global `fetch` implementation. */
+	fetch?: typeof fetch;
+}
+
+export interface WebSocketTransportOptions<
+	TEvent extends { type: string } = SSEEvent,
+> {
+	/** WebSocket URL or resolver. */
+	url: string | ((runId: string | null) => string);
+
+	/** HTTP endpoint to cancel a running job. Called with POST when `stop()` is invoked. */
+	cancelUrl?: string | ((runId: string) => string);
+
+	/** Optional subprotocols passed to the WebSocket constructor. */
+	protocols?: string | string[];
+
+	/** Extra payload merged into every outbound message frame. */
+	body?: Record<string, unknown>;
+
+	/** Persisted run id to resume immediately on mount. */
+	runId?: string | null;
+
+	/** Read a persisted run id during mount. */
+	getResumeKey?: () => string | null | undefined;
+
+	/** Persist run id updates so the app can reconnect later. */
+	onRunIdChange?: (runId: string | null) => void;
+
+	/** Parse incoming WebSocket frames into chat events. Defaults to JSON.parse. */
+	parseMessage?: (data: unknown) => TEvent | TEvent[] | null;
+
+	/** Derive a resumable run id from an inbound event. */
+	resolveRunId?: (event: TEvent) => string | null;
+
+	/** Serialize outbound frames. Defaults to JSON.stringify. */
+	serializeMessage?: (payload: Record<string, unknown>) => string;
+
+	/** Request payload key used for the run id. Default: `runId`. */
+	runIdKey?: string;
+
+	/** Build the payload sent when reconnecting to an existing run. */
+	buildResumePayload?: (runId: string) => Record<string, unknown>;
+}
+
+export interface TransportOptions<
+	TEvent extends { type: string } = SSEEvent,
+> {
+	sse?: DirectSSETransportOptions;
+	backgroundSSE?: BackgroundSSETransportOptions;
+	websocket?: WebSocketTransportOptions<TEvent>;
+}
+
+// ---------------------------------------------------------------------------
 // Hook Options
 // ---------------------------------------------------------------------------
 
@@ -27,16 +203,33 @@ export interface UseStreamChatOptions<
 	TPart extends { type: string } = ContentPart,
 	TEvent extends { type: string } = SSEEvent,
 > {
-	/** SSE endpoint URL. */
-	api: string;
+	/**
+	 * Transport strategy. Defaults to `"sse"` when omitted.
+	 * Pass a custom transport object to fully control connection behavior.
+	 */
+	transport?:
+		| "sse"
+		| "background-sse"
+		| "websocket"
+		| ChatTransport<TPart, TEvent>;
+
+	/**
+	 * Grouped transport configuration for built-in adapters.
+	 * Existing direct-SSE callers may continue to use the top-level `api`,
+	 * `headers`, and `body` fields.
+	 */
+	transportOptions?: TransportOptions<TEvent>;
+
+	/** Direct SSE endpoint URL. Backward-compatible alias for `transportOptions.sse.api`. */
+	api?: string;
 
 	/** Initial messages to prepopulate the chat (e.g. from a database or previous session). */
 	initialMessages?: Message<TPart>[];
 
-	/** Extra headers merged into every fetch request. */
+	/** Extra headers merged into every direct-SSE fetch request. */
 	headers?: Record<string, string>;
 
-	/** Extra fields merged into the POST body alongside `message`. */
+	/** Extra fields merged into the direct-SSE POST body alongside `message`. */
 	body?: Record<string, unknown>;
 
 	/**
@@ -74,6 +267,9 @@ export interface UseStreamChatReturn<
 
 	/** The most recent error, or `null`. */
 	error: Error | null;
+
+	/** Current resumable run id, if the active transport exposes one. */
+	runId: string | null;
 
 	/** Send a user message and begin streaming the assistant response. */
 	sendMessage: (text: string) => void;

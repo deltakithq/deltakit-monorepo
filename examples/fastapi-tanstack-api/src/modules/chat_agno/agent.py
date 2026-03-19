@@ -99,7 +99,7 @@ def get_agent(session_id: str = "default") -> Agent:
     """Create and return an Agno agent configured for the given session."""
     return Agent(
         model=OpenRouter(
-            id="moonshotai/kimi-k2.5",
+            id="kimi-k2.5",
             api_key=settings.OPENROUTER_API_KEY,
         ),
         tools=[search_web, crawl_website, extract_webpage],

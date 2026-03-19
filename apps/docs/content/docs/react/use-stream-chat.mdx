@@ -1,9 +1,9 @@
 ---
 title: useStreamChat
-description: The core React hook for streaming chat over SSE.
+description: The core React hook for streaming chat with pluggable transports.
 ---
 
-`useStreamChat` manages the full lifecycle of a streaming chat: state, network requests, SSE parsing, cancellation, and event handling.
+`useStreamChat` manages the full lifecycle of a streaming chat: state, network requests, event parsing, cancellation, and event handling. It supports multiple transport strategies — direct SSE, background SSE, WebSocket, or a fully custom transport.
 
 ```ts
 import { useStreamChat } from "@deltakit/react";
@@ -20,11 +20,61 @@ function useStreamChat<
 
 ## Options
 
-### `api` (required)
+### `transport`
+
+**Type:** `"sse" | "background-sse" | "websocket" | ChatTransport<TPart, TEvent>`
+
+The transport strategy to use. Defaults to `"sse"`.
+
+```ts
+// Direct SSE (default)
+useStreamChat({ api: "/api/chat" });
+
+// Background SSE — job-based with resumable event streams
+useStreamChat({
+  transport: "background-sse",
+  transportOptions: {
+    backgroundSSE: {
+      startApi: "/api/jobs",
+      eventsApi: (id) => `/api/jobs/${id}/events`,
+    },
+  },
+});
+
+// WebSocket
+useStreamChat({
+  transport: "websocket",
+  transportOptions: {
+    websocket: { url: "ws://localhost:8000/ws" },
+  },
+});
+
+// Custom transport
+useStreamChat({
+  transport: {
+    start: ({ context, message }) => { /* ... */ },
+    resume: ({ context, runId }) => { /* ... */ },
+  },
+});
+```
+
+### `transportOptions`
+
+**Type:** `TransportOptions<TEvent>`
+
+Configuration for built-in transports. Each transport reads from its own key:
+
+- `transportOptions.sse` — for the `"sse"` transport
+- `transportOptions.backgroundSSE` — for the `"background-sse"` transport
+- `transportOptions.websocket` — for the `"websocket"` transport
+
+See the [Background Task Streaming](/docs/react/recipes/agno-agents/background-task) and [WebSocket Chat](/docs/react/recipes/agno-agents/websocket-chat) recipes for full configuration details.
+
+### `api`
 
 **Type:** `string`
 
-The endpoint URL to POST messages to.
+The endpoint URL to POST messages to. Required when using the default `"sse"` transport (or use `transportOptions.sse.api`).
 
 ```ts
 useStreamChat({ api: "/api/chat" });
@@ -174,6 +224,12 @@ Chronological list of all messages. Updates in real-time during streaming.
 
 The most recent error, or `null`. Reset to `null` on each new `sendMessage` call.
 
+### `runId`
+
+**Type:** `string | null`
+
+The current resumable run id, if the active transport exposes one. Used by `background-sse` and `websocket` transports for reconnection. Reset to `null` when the stream completes.
+
 ### `sendMessage`
 
 **Type:** `(text: string) => void`
@@ -184,7 +240,7 @@ Send a user message and begin streaming the assistant response. Creates both a u
 
 **Type:** `() => void`
 
-Abort the current in-flight stream. Safe to call when not streaming.
+Abort the current in-flight stream. Safe to call when not streaming. When `cancelUrl` (websocket) or `cancelApi` (background-sse) is configured, `stop` also sends a POST request to the backend to cancel the running job server-side.
 
 ### `setMessages`
 
@@ -242,13 +298,21 @@ const { messages } = useStreamChat<
 2. A user message and an empty assistant message are appended to state
 3. `onMessage` fires for the user message
 4. `isLoading` becomes `true`
-5. `fetch(api, { method: "POST", body: { message: "Hello", ...body } })` is called
-6. Response body is piped through `parseSSEStream`
-7. Each event is passed to `onEvent` (or the default handler)
-8. State updates trigger re-renders with streaming content
-9. When the stream ends: `onMessage` fires for the assistant message, `onFinish` fires
-10. `isLoading` becomes `false`
+5. The active transport starts (SSE fetch, background job, or WebSocket frame)
+6. Each event is passed to `onEvent` (or the default handler)
+7. State updates trigger re-renders with streaming content
+8. When the stream ends: `onMessage` fires for the assistant message, `onFinish` fires
+9. `isLoading` becomes `false`
+
+### Resume Lifecycle (background-sse / websocket)
+
+When a persisted `runId` is found on mount:
+
+1. The transport's `resume` method is called with the run id
+2. `isLoading` becomes `true`
+3. Events stream from where the client left off
+4. The lifecycle continues from step 6 above
 
 ## Cleanup
 
-The hook automatically aborts any in-flight stream when the component unmounts.
+The hook automatically closes any in-flight transport (aborts fetch, closes WebSocket) when the component unmounts.

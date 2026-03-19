@@ -12,7 +12,7 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "scalar-fastapi>=1.8.0",
     "tavily-python>=0.7.22",
-    "uvicorn>=0.41.0",
+    "uvicorn[standard]>=0.41.0",
 ]
 
 [dependency-groups]

@@ -9,9 +9,21 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ChatAgnoWebsocketRouteImport } from './routes/chat-agno-websocket'
+import { Route as ChatAgnoBackgroundTaskRouteImport } from './routes/chat-agno-background-task'
 import { Route as ChatAgnoRouteImport } from './routes/chat-agno'
 import { Route as IndexRouteImport } from './routes/index'
 
+const ChatAgnoWebsocketRoute = ChatAgnoWebsocketRouteImport.update({
+  id: '/chat-agno-websocket',
+  path: '/chat-agno-websocket',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatAgnoBackgroundTaskRoute = ChatAgnoBackgroundTaskRouteImport.update({
+  id: '/chat-agno-background-task',
+  path: '/chat-agno-background-task',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatAgnoRoute = ChatAgnoRouteImport.update({
   id: '/chat-agno',
   path: '/chat-agno',
@@ -26,31 +38,62 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat-agno': typeof ChatAgnoRoute
+  '/chat-agno-background-task': typeof ChatAgnoBackgroundTaskRoute
+  '/chat-agno-websocket': typeof ChatAgnoWebsocketRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat-agno': typeof ChatAgnoRoute
+  '/chat-agno-background-task': typeof ChatAgnoBackgroundTaskRoute
+  '/chat-agno-websocket': typeof ChatAgnoWebsocketRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/chat-agno': typeof ChatAgnoRoute
+  '/chat-agno-background-task': typeof ChatAgnoBackgroundTaskRoute
+  '/chat-agno-websocket': typeof ChatAgnoWebsocketRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/chat-agno'
+  fullPaths:
+    | '/'
+    | '/chat-agno'
+    | '/chat-agno-background-task'
+    | '/chat-agno-websocket'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chat-agno'
-  id: '__root__' | '/' | '/chat-agno'
+  to: '/' | '/chat-agno' | '/chat-agno-background-task' | '/chat-agno-websocket'
+  id:
+    | '__root__'
+    | '/'
+    | '/chat-agno'
+    | '/chat-agno-background-task'
+    | '/chat-agno-websocket'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatAgnoRoute: typeof ChatAgnoRoute
+  ChatAgnoBackgroundTaskRoute: typeof ChatAgnoBackgroundTaskRoute
+  ChatAgnoWebsocketRoute: typeof ChatAgnoWebsocketRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/chat-agno-websocket': {
+      id: '/chat-agno-websocket'
+      path: '/chat-agno-websocket'
+      fullPath: '/chat-agno-websocket'
+      preLoaderRoute: typeof ChatAgnoWebsocketRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chat-agno-background-task': {
+      id: '/chat-agno-background-task'
+      path: '/chat-agno-background-task'
+      fullPath: '/chat-agno-background-task'
+      preLoaderRoute: typeof ChatAgnoBackgroundTaskRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/chat-agno': {
       id: '/chat-agno'
       path: '/chat-agno'
@@ -71,6 +114,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatAgnoRoute: ChatAgnoRoute,
+  ChatAgnoBackgroundTaskRoute: ChatAgnoBackgroundTaskRoute,
+  ChatAgnoWebsocketRoute: ChatAgnoWebsocketRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

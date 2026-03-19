@@ -6,28 +6,48 @@ import {
 	useStreamChat,
 } from "@deltakit/react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { ToolCall } from "../components/tool-call";
 
-const API_URL = "http://localhost:8000/api/chat-agno/";
+const API_URL = "http://localhost:8000/api/chat-agno-background-task/";
+const STORAGE_KEY = "chat-agno-background-task-run-id";
+
+function readPersistedRunId(): string | null {
+	if (typeof window === "undefined") {
+		return null;
+	}
+	return window.sessionStorage.getItem(STORAGE_KEY);
+}
+
+function writePersistedRunId(runId: string | null) {
+	if (typeof window === "undefined") {
+		return;
+	}
+	if (runId) {
+		window.sessionStorage.setItem(STORAGE_KEY, runId);
+		return;
+	}
+	window.sessionStorage.removeItem(STORAGE_KEY);
+}
 
 async function fetchHistory() {
 	const res = await fetch(API_URL);
 	if (!res.ok) throw new Error("Failed to fetch history");
-	// Backend returns raw Agno messages
-	// We need to convert them to DeltaKit Message format
 	const messages = await res.json();
 	return fromAgnoAgents(messages);
 }
 
-export const Route = createFileRoute("/chat-agno")({
+export const Route = createFileRoute("/chat-agno-background-task")({
 	loader: () => fetchHistory(),
-	component: ChatAgno,
+	component: ChatAgnoBackgroundTask,
 });
 
-function ChatAgno() {
+function ChatAgnoBackgroundTask() {
 	const initialMessages = Route.useLoaderData();
+	const [activeRunId, setActiveRunId] = useState<string | null>(() =>
+		readPersistedRunId(),
+	);
 
-	// Define custom event types for the demo
 	type CustomEvent =
 		| { type: "text_delta"; delta: string }
 		| {
@@ -37,89 +57,105 @@ function ChatAgno() {
 				call_id?: string;
 		  }
 		| { type: "tool_result"; call_id: string | null; output: string }
-		| { type: "reasoning"; text: string };
+		| { type: "reasoning"; text: string }
+		| { type: "done" }
+		| { type: "error"; message: string };
 
-	const { messages, isLoading, sendMessage, stop, setMessages } = useStreamChat<
-		ContentPart,
-		CustomEvent
-	>({
-		initialMessages,
-		transport: "sse",
-		transportOptions: {
-			sse: {
-				api: API_URL,
+	const { messages, isLoading, sendMessage, setMessages, runId, stop } =
+		useStreamChat<ContentPart, CustomEvent>({
+			initialMessages,
+			transport: "background-sse",
+			transportOptions: {
+				backgroundSSE: {
+					cancelApi: (id) => `${API_URL}jobs/${id}/cancel`,
+					eventsApi: (id) => `${API_URL}jobs/${id}/events`,
+					getResumeKey: () => readPersistedRunId(),
+					onRunIdChange: (nextRunId) => {
+						writePersistedRunId(nextRunId);
+						setActiveRunId(nextRunId);
+					},
+					runId: activeRunId,
+					startApi: `${API_URL}jobs`,
+					statusApi: (id) => `${API_URL}jobs/${id}`,
+				},
 			},
-		},
-		onEvent: (event, helpers) => {
-			if (event.type === "text_delta") {
-				helpers.appendText(event.delta);
-			} else if (event.type === "tool_call") {
-				helpers.appendPart({
-					type: "tool_call",
-					tool_name: event.tool_name,
-					argument: event.argument,
-					callId: event.call_id,
-				});
-			} else if (event.type === "tool_result") {
-				// Find and update the matching tool_call with its result
-				helpers.setMessages((prev) => {
-					const last = prev[prev.length - 1];
-					if (!last || last.role !== "assistant") return prev;
+			onEvent: (event, helpers) => {
+				if (event.type === "text_delta") {
+					helpers.appendText(event.delta);
+				} else if (event.type === "tool_call") {
+					helpers.appendPart({
+						type: "tool_call",
+						tool_name: event.tool_name,
+						argument: event.argument,
+						callId: event.call_id,
+					});
+				} else if (event.type === "tool_result") {
+					helpers.setMessages((prev) => {
+						const last = prev[prev.length - 1];
+						if (!last || last.role !== "assistant") return prev;
 
-					const updatedParts = [...last.parts];
-					// Find the tool_call with matching callId
-					for (let i = updatedParts.length - 1; i >= 0; i--) {
-						const p = updatedParts[i];
-						if (p.type === "tool_call" && p.callId === event.call_id) {
-							updatedParts[i] = { ...p, result: event.output };
-							break;
+						const updatedParts = [...last.parts];
+						for (let i = updatedParts.length - 1; i >= 0; i--) {
+							const p = updatedParts[i];
+							if (p.type === "tool_call" && p.callId === event.call_id) {
+								updatedParts[i] = { ...p, result: event.output };
+								break;
+							}
 						}
-					}
 
-					const updated = { ...last, parts: updatedParts };
-					return [...prev.slice(0, -1), updated];
-				});
-			} else if (event.type === "reasoning") {
-				// Accumulate reasoning text into existing reasoning part or create new one
-				helpers.setMessages((prev) => {
-					const last = prev[prev.length - 1];
-					if (!last || last.role !== "assistant") return prev;
+						const updated = { ...last, parts: updatedParts };
+						return [...prev.slice(0, -1), updated];
+					});
+				} else if (event.type === "reasoning") {
+					helpers.setMessages((prev) => {
+						const last = prev[prev.length - 1];
+						if (!last || last.role !== "assistant") return prev;
 
-					const parts = [...last.parts];
-					const lastPart = parts[parts.length - 1];
+						const parts = [...last.parts];
+						const lastPart = parts[parts.length - 1];
 
-					if (lastPart && lastPart.type === "reasoning") {
-						// Append to existing reasoning part
-						parts[parts.length - 1] = {
-							...lastPart,
-							text:
-								(lastPart as { type: "reasoning"; text: string }).text +
-								event.text,
-						};
-					} else {
-						// Create new reasoning part
-						parts.push({
-							type: "reasoning",
-							text: event.text,
-						} as ContentPart);
-					}
+						if (lastPart && lastPart.type === "reasoning") {
+							parts[parts.length - 1] = {
+								...lastPart,
+								text:
+									(lastPart as { type: "reasoning"; text: string }).text +
+									event.text,
+							};
+						} else {
+							parts.push({
+								type: "reasoning",
+								text: event.text,
+							} as ContentPart);
+						}
 
-					const updated = { ...last, parts };
-					return [...prev.slice(0, -1), updated];
-				});
-			}
-		},
-	});
+						const updated = { ...last, parts };
+						return [...prev.slice(0, -1), updated];
+					});
+				}
+			},
+		});
 
 	const { ref, scrollToBottom, isAtBottom } = useAutoScroll([messages]);
 
 	const clearChat = async () => {
 		await fetch(`${API_URL}clear`, { method: "POST" });
+		writePersistedRunId(null);
+		setActiveRunId(null);
 		setMessages([]);
 	};
 
 	return (
 		<div className="flex flex-1 flex-col min-h-0">
+			<div className="border-b border-neutral-800 bg-neutral-950/80">
+				<div className="mx-auto max-w-2xl px-4 py-3 text-xs text-neutral-400">
+					Background SSE demo. Start a message, navigate to another route, then
+					come back to resume the stream.
+					{(runId ?? activeRunId) && (
+						<span className="ml-2 text-neutral-500">Run: {runId ?? activeRunId}</span>
+					)}
+				</div>
+			</div>
+
 			<div ref={ref} className="flex-1 overflow-y-auto">
 				<div className="mx-auto max-w-2xl p-4">
 					{messages.length > 0 && (
@@ -136,7 +172,7 @@ function ChatAgno() {
 					<div className="space-y-4 pb-4">
 						{messages.length === 0 && (
 							<p className="mt-8 text-center text-neutral-500">
-								Start a conversation with Agno.
+								Start a background conversation with Agno.
 							</p>
 						)}
 						{messages.map((msg) => (
@@ -149,7 +185,7 @@ function ChatAgno() {
 										case "text":
 											return (
 												<div
-													key={"text-${partIndex}"}
+													key={`text-${partIndex}`}
 													className="prose prose-invert prose-sm max-w-none"
 												>
 													<StreamingMarkdown content={part.text} batchMs={8} />
@@ -158,7 +194,7 @@ function ChatAgno() {
 										case "tool_call":
 											return (
 												<ToolCall
-													key={"tool_call-${partIndex}"}
+													key={`tool_call-${partIndex}`}
 													argument={part.argument}
 													result={part.result}
 												/>
@@ -170,16 +206,16 @@ function ChatAgno() {
 											};
 											return (
 												<div
-													key={"reasoning-${partIndex}"}
+													key={`reasoning-${partIndex}`}
 													className="rounded border border-neutral-700 bg-neutral-800/50 p-3 text-sm text-neutral-400 italic"
 												>
-													<div className="flex items-center gap-2 mb-2">
-														<span className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
+													<div className="mb-2 flex items-center gap-2">
+														<span className="text-xs font-medium uppercase tracking-wider text-neutral-500">
 															Thinking
 														</span>
 														{isLoading &&
 															partIndex === msg.parts.length - 1 && (
-																<span className="inline-block w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse" />
+																<span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-neutral-500" />
 															)}
 													</div>
 													<p className="whitespace-pre-wrap">

@@ -36,10 +36,10 @@ export const Route = createRootRoute({
 function Navigation() {
 	return (
 		<nav className="border-b border-neutral-800 bg-neutral-900">
-			<div className="mx-auto max-w-2xl px-4 py-3">
-				<div className="flex items-center gap-4">
+			<div className="mx-auto max-w-4xl px-4 py-3">
+				<div className="flex flex-wrap items-center gap-4">
 					<span className="text-sm font-semibold text-neutral-400">Chat:</span>
-					<div className="flex gap-3">
+					<div className="flex flex-wrap gap-3">
 						<Link
 							to="/"
 							activeProps={{ className: "text-white" }}
@@ -58,7 +58,27 @@ function Navigation() {
 							}}
 							className="text-sm font-medium transition-colors"
 						>
-							Agno
+							Agno SSE
+						</Link>
+						<Link
+							to="/chat-agno-background-task"
+							activeProps={{ className: "text-white" }}
+							inactiveProps={{
+								className: "text-neutral-500 hover:text-neutral-300",
+							}}
+							className="text-sm font-medium transition-colors"
+						>
+							Agno Background
+						</Link>
+						<Link
+							to="/chat-agno-websocket"
+							activeProps={{ className: "text-white" }}
+							inactiveProps={{
+								className: "text-neutral-500 hover:text-neutral-300",
+							}}
+							className="text-sm font-medium transition-colors"
+						>
+							Agno WebSocket
 						</Link>
 					</div>
 				</div>

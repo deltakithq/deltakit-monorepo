@@ -2,12 +2,14 @@
 	"title": "Agno Agents",
 	"pages": [
 		"authentication",
+		"background-task",
 		"handling-tool-results",
 		"loading-chat-history",
 		"managing-messages",
 		"markdown-rendering",
 		"reasoning-events",
 		"scroll-to-bottom-indicator",
-		"tool-call-rendering"
+		"tool-call-rendering",
+		"websocket-chat"
 	]
 }

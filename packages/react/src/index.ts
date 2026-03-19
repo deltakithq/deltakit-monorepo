@@ -17,11 +17,18 @@ export {
 } from "@deltakit/core";
 
 export type {
+	BackgroundSSETransportOptions,
+	ChatTransport,
+	ChatTransportContext,
+	ChatTransportRun,
+	DirectSSETransportOptions,
 	EventHelpers,
+	TransportOptions,
 	UseAutoScrollOptions,
 	UseAutoScrollReturn,
 	UseStreamChatOptions,
 	UseStreamChatReturn,
+	WebSocketTransportOptions,
 } from "./types";
 export { useAutoScroll } from "./use-auto-scroll";
 export { useStreamChat } from "./use-stream-chat";

@@ -1,28 +1,13 @@
-import type { ContentPart, Message, SSEEvent } from "@deltakit/core";
-import { parseSSEStream } from "@deltakit/core";
-import { useCallback, useEffect, useRef, useState } from "react";
+import type { ContentPart, SSEEvent } from "@deltakit/core";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createChatTransportContext, createMessage } from "./chat-controller";
+import { resolveTransport } from "./transports";
 import type {
+	ChatTransportRun,
 	EventHelpers,
 	UseStreamChatOptions,
 	UseStreamChatReturn,
 } from "./types";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-let counter = 0;
-
-function generateId(): string {
-	return `msg_${Date.now()}_${++counter}`;
-}
-
-function createMessage<TPart extends { type: string }>(
-	role: Message["role"],
-	parts: TPart[],
-): Message<TPart> {
-	return { id: generateId(), role, parts };
-}
 
 // ---------------------------------------------------------------------------
 // Default event handler — accumulates `text_delta` into the last
@@ -48,34 +33,32 @@ export function useStreamChat<
 	TPart extends { type: string } = ContentPart,
 	TEvent extends { type: string } = SSEEvent,
 >(options: UseStreamChatOptions<TPart, TEvent>): UseStreamChatReturn<TPart> {
-	const {
-		api,
-		headers,
-		body,
-		initialMessages,
-		onEvent,
-		onMessage,
-		onError,
-		onFinish,
-	} = options;
+	const { initialMessages, onEvent, onMessage, onError, onFinish } = options;
 
-	const [messages, setMessages] = useState<Message<TPart>[]>(
-		initialMessages ?? [],
-	);
+	const [messages, setMessages] = useState(initialMessages ?? []);
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
+	const [runId, setRunId] = useState<string | null>(null);
 
-	const abortRef = useRef<AbortController | null>(null);
+	const runRef = useRef<ChatTransportRun | null>(null);
 
-	// We use a ref for the latest messages so that callbacks created inside
-	// `sendMessage` always see the current value without re-creating closures.
-	const messagesRef = useRef<Message<TPart>[]>(messages);
+	// Track which run id has already been resumed to prevent re-triggering.
+	const resumedRunIdRef = useRef<string | null>(null);
+
+	// When the user manually stops a run, suppress auto-resume until the
+	// next explicit `sendMessage` call.
+	const manuallyStoppedRef = useRef(false);
+
+	// We use a ref for the latest messages so callbacks created inside
+	// transport handlers always see the current value without re-creating
+	// closures.
+	const messagesRef = useRef(messages);
 	messagesRef.current = messages;
 
-	// -----------------------------------------------------------------------
-	// appendText — append a text delta to the last text part of the last
-	// assistant message, or create a new text part if needed.
-	// -----------------------------------------------------------------------
+	// Keep transport options in a ref so that callbacks always read the
+	// latest values without causing memoisation instability.
+	const transportOptionsRef = useRef(options.transportOptions);
+	transportOptionsRef.current = options.transportOptions;
 
 	const appendText = useCallback((delta: string) => {
 		setMessages((prev) => {
@@ -86,57 +69,105 @@ export function useStreamChat<
 			const lastPart = parts[parts.length - 1];
 
 			if (lastPart && lastPart.type === "text" && "text" in lastPart) {
-				// Append to existing text part
 				const textPart = lastPart as { type: "text"; text: string };
 				parts[parts.length - 1] = {
 					...lastPart,
 					text: textPart.text + delta,
 				} as unknown as TPart;
 			} else {
-				// Create a new text part
 				parts.push({ type: "text", text: delta } as unknown as TPart);
 			}
 
-			const updated: Message<TPart> = { ...last, parts };
-			return [...prev.slice(0, -1), updated];
+			return [...prev.slice(0, -1), { ...last, parts }];
 		});
 	}, []);
-
-	// -----------------------------------------------------------------------
-	// appendPart — push a new content part to the last assistant message.
-	// -----------------------------------------------------------------------
 
 	const appendPart = useCallback((part: TPart) => {
 		setMessages((prev) => {
 			const last = prev[prev.length - 1];
 			if (!last || last.role !== "assistant") return prev;
 
-			const updated: Message<TPart> = {
-				...last,
-				parts: [...last.parts, part],
-			};
-			return [...prev.slice(0, -1), updated];
+			return [
+				...prev.slice(0, -1),
+				{
+					...last,
+					parts: [...last.parts, part],
+				},
+			];
 		});
 	}, []);
 
-	// -----------------------------------------------------------------------
-	// stop
-	// -----------------------------------------------------------------------
+	// Stabilise transport creation: resolve once and store in a ref so that
+	// changing values like `runId` in transportOptions won't cause a new
+	// transport instance (and therefore a new WebSocket) to be created.
+	const transportRef = useRef<ReturnType<
+		typeof resolveTransport<TPart, TEvent>
+	> | null>(null);
+	if (!transportRef.current) {
+		transportRef.current = resolveTransport(options);
+	}
+	const transport = transportRef.current;
+
+	const eventHandler =
+		onEvent ??
+		(defaultOnEvent as unknown as (
+			event: TEvent,
+			helpers: EventHelpers<TPart>,
+		) => void);
+
+	// Stabilise the transport context: use refs for values that change
+	// frequently (transportOptions callbacks) so the context object itself
+	// stays referentially stable.
+	const eventHandlerRef = useRef(eventHandler);
+	eventHandlerRef.current = eventHandler;
+
+	const onErrorRef = useRef(onError);
+	onErrorRef.current = onError;
+
+	const onFinishRef = useRef(onFinish);
+	onFinishRef.current = onFinish;
+
+	const onMessageRef = useRef(onMessage);
+	onMessageRef.current = onMessage;
+
+	const transportContext = useMemo(
+		() =>
+			createChatTransportContext({
+				appendPart,
+				appendText,
+				eventHandler: (event: TEvent, helpers: EventHelpers<TPart>) =>
+					eventHandlerRef.current(event, helpers),
+				getMessages: () => messagesRef.current,
+				onError: (...args) => onErrorRef.current?.(...args),
+				onFinish: (...args) => onFinishRef.current?.(...args),
+				onMessage: (...args) => onMessageRef.current?.(...args),
+				setError,
+				setIsLoading,
+				setMessages,
+				setRunId: (next) => {
+					setRunId(next);
+					transportOptionsRef.current?.backgroundSSE?.onRunIdChange?.(next);
+					transportOptionsRef.current?.websocket?.onRunIdChange?.(next);
+				},
+			}),
+		[appendPart, appendText],
+	);
 
 	const stop = useCallback(() => {
-		abortRef.current?.abort();
-		abortRef.current = null;
+		const activeRun = runRef.current;
+		if (!activeRun?.stop) {
+			return;
+		}
+
+		manuallyStoppedRef.current = true;
+		void activeRun.stop();
+		runRef.current = null;
 		setIsLoading(false);
 	}, []);
 
-	// -----------------------------------------------------------------------
-	// sendMessage
-	// -----------------------------------------------------------------------
-
 	const sendMessage = useCallback(
 		(text: string) => {
-			// Prevent sending while already streaming.
-			if (abortRef.current) {
+			if (runRef.current || isLoading) {
 				return;
 			}
 
@@ -152,112 +183,98 @@ export function useStreamChat<
 			});
 
 			onMessage?.(userMessage);
-
 			setError(null);
 			setIsLoading(true);
 
-			const controller = new AbortController();
-			abortRef.current = controller;
+			// Reset the resume guard so a future resume for a new run is allowed.
+			resumedRunIdRef.current = null;
+			manuallyStoppedRef.current = false;
 
-			const eventHandler =
-				onEvent ??
-				(defaultOnEvent as unknown as (
-					event: TEvent,
-					helpers: EventHelpers<TPart>,
-				) => void);
-			const helpers: EventHelpers<TPart> = {
-				appendText,
-				appendPart,
-				setMessages,
-			};
-
-			// Fire-and-forget async IIFE — state is managed via React setState.
-			(async () => {
-				try {
-					const response = await fetch(api, {
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							...headers,
-						},
-						body: JSON.stringify({ message: text, ...body }),
-						signal: controller.signal,
-					});
-
-					if (!response.ok) {
-						throw new Error(
-							`SSE request failed: ${response.status} ${response.statusText}`,
-						);
-					}
-
-					if (!response.body) {
-						throw new Error(
-							"Response body is null — SSE streaming not supported",
-						);
-					}
-
-					for await (const event of parseSSEStream(
-						response.body,
-						controller.signal,
-					)) {
-						eventHandler(event as unknown as TEvent, helpers);
-					}
-
-					// Stream finished — notify via callbacks.
-					const finalMessages = messagesRef.current;
-					const lastMessage = finalMessages[finalMessages.length - 1];
-
-					if (lastMessage?.role === "assistant") {
-						onMessage?.(lastMessage);
-					}
-
-					onFinish?.(finalMessages);
-				} catch (err) {
-					// AbortError is expected when the user calls `stop()`.
-					if (err instanceof DOMException && err.name === "AbortError") {
-						return;
-					}
-
-					const error = err instanceof Error ? err : new Error(String(err));
-
-					setError(error);
-					onError?.(error);
-				} finally {
-					abortRef.current = null;
-					setIsLoading(false);
-				}
-			})();
+			const run = transport.start({ context: transportContext, message: text });
+			runRef.current = run ?? null;
+			if (run?.runId) {
+				setRunId(run.runId);
+			}
 		},
-		[
-			api,
-			headers,
-			body,
-			onEvent,
-			onMessage,
-			onError,
-			onFinish,
-			appendText,
-			appendPart,
-		],
+		[isLoading, onMessage, transport, transportContext],
 	);
 
 	// -----------------------------------------------------------------------
-	// Cleanup — abort any in-flight stream when the component unmounts.
+	// Auto-resume effect: attempt to reconnect to an in-flight run on mount.
+	//
+	// The candidate run id is read from transport options (which may change
+	// when the app updates state). We guard against duplicate resumes for the
+	// same run id using `resumedRunIdRef`.
 	// -----------------------------------------------------------------------
+
+	const candidateRunId =
+		options.transportOptions?.backgroundSSE?.runId ??
+		options.transportOptions?.backgroundSSE?.getResumeKey?.() ??
+		options.transportOptions?.websocket?.runId ??
+		options.transportOptions?.websocket?.getResumeKey?.() ??
+		null;
+
+	useEffect(() => {
+		// Already have an active run — don't start another.
+		if (runRef.current) {
+			return;
+		}
+
+		if (!candidateRunId) {
+			return;
+		}
+
+		// User explicitly stopped — don't auto-resume until next sendMessage.
+		if (manuallyStoppedRef.current) {
+			return;
+		}
+
+		// Already resumed this exact run id — don't retry.
+		if (resumedRunIdRef.current === candidateRunId) {
+			return;
+		}
+
+		if (!transport.resume) {
+			return;
+		}
+
+		resumedRunIdRef.current = candidateRunId;
+
+		setError(null);
+		setIsLoading(true);
+		const run = transport.resume({
+			context: transportContext,
+			runId: candidateRunId,
+		});
+		runRef.current = run ?? null;
+		setRunId(candidateRunId);
+	}, [candidateRunId, transport, transportContext]);
 
 	useEffect(() => {
 		return () => {
-			abortRef.current?.abort();
-			abortRef.current = null;
+			void runRef.current?.close?.();
+			runRef.current = null;
 		};
 	}, []);
 
+	const prevIsLoadingRef = useRef(isLoading);
+	useEffect(() => {
+		// Only clear the run ref on a true → false transition, not on mount
+		// where isLoading starts as false. Clearing on mount would race with
+		// the auto-resume effect and null out the run it just created.
+		if (prevIsLoadingRef.current && !isLoading) {
+			runRef.current = null;
+		}
+		prevIsLoadingRef.current = isLoading;
+	}, [isLoading]);
+
 	return {
-		messages,
-		isLoading,
 		error,
+		isLoading,
+		messages,
+		runId,
 		sendMessage,
-		stop,
 		setMessages,
+		stop,
 	};
 }
