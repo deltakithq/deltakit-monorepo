@@ -70,15 +70,25 @@ export function parseInline(input: string): InlineToken[] {
 			const marker = input.slice(pos, pos + 2);
 			const end = input.indexOf(marker, pos + 2);
 			if (end !== -1) {
-				flushText(tokens, input, pos);
-				const inner = input.slice(pos + 2, end);
-				tokens.push({
-					type: "strong",
-					value: inner,
-					children: parseInline(inner),
-				});
-				pos = end + 2;
-				matched = true;
+				// For __: skip intraword emphasis (CommonMark rule)
+				const isIntraword =
+					marker === "__" &&
+					pos > 0 &&
+					/\w/.test(input[pos - 1]) &&
+					end + 2 < input.length &&
+					/\w/.test(input[end + 2]);
+
+				if (!isIntraword) {
+					flushText(tokens, input, pos);
+					const inner = input.slice(pos + 2, end);
+					tokens.push({
+						type: "strong",
+						value: inner,
+						children: parseInline(inner),
+					});
+					pos = end + 2;
+					matched = true;
+				}
 			}
 		}
 
@@ -87,15 +97,25 @@ export function parseInline(input: string): InlineToken[] {
 			const marker = input[pos];
 			const end = findClosingMarker(input, pos + 1, marker);
 			if (end !== -1) {
-				flushText(tokens, input, pos);
-				const inner = input.slice(pos + 1, end);
-				tokens.push({
-					type: "em",
-					value: inner,
-					children: parseInline(inner),
-				});
-				pos = end + 1;
-				matched = true;
+				// For _: skip intraword emphasis (CommonMark rule)
+				const isIntraword =
+					marker === "_" &&
+					pos > 0 &&
+					/\w/.test(input[pos - 1]) &&
+					end + 1 < input.length &&
+					/\w/.test(input[end + 1]);
+
+				if (!isIntraword) {
+					flushText(tokens, input, pos);
+					const inner = input.slice(pos + 1, end);
+					tokens.push({
+						type: "em",
+						value: inner,
+						children: parseInline(inner),
+					});
+					pos = end + 1;
+					matched = true;
+				}
 			}
 		}
 
@@ -336,7 +356,24 @@ function findFirstUnclosedSingle(input: string, marker: string): number {
 		// This is a single marker — find its close
 		const closeIdx = findClosingMarker(input, idx + 1, marker);
 		if (closeIdx === -1) {
+			// For _: don't buffer on intraword underscores
+			if (marker === "_" && idx > 0 && /\w/.test(input[idx - 1])) {
+				pos = idx + 1;
+				continue;
+			}
 			return idx;
+		}
+
+		// For _: skip intraword emphasis (CommonMark rule)
+		if (
+			marker === "_" &&
+			idx > 0 &&
+			/\w/.test(input[idx - 1]) &&
+			closeIdx + 1 < input.length &&
+			/\w/.test(input[closeIdx + 1])
+		) {
+			pos = closeIdx + 1;
+			continue;
 		}
 
 		pos = closeIdx + 1;

@@ -65,6 +65,43 @@ describe("parseInline", () => {
 		});
 	});
 
+	describe("intraword underscore (CommonMark rule)", () => {
+		it("should not parse underscores in get_skill_users() as emphasis", () => {
+			const tokens = parseInline("get_skill_users()");
+			expect(tokens).toHaveLength(1);
+			expect(tokens[0].type).toBe("text");
+			expect(tokens[0].value).toBe("get_skill_users()");
+		});
+
+		it("should not parse underscores in my_var_name as emphasis", () => {
+			const tokens = parseInline("my_var_name");
+			expect(tokens).toHaveLength(1);
+			expect(tokens[0].type).toBe("text");
+			expect(tokens[0].value).toBe("my_var_name");
+		});
+
+		it("should parse _valid italic_ with space before opening _", () => {
+			const tokens = parseInline("_valid italic_");
+			expect(tokens).toHaveLength(1);
+			expect(tokens[0].type).toBe("em");
+			expect(tokens[0].value).toBe("valid italic");
+		});
+
+		it("should parse word _italic_ word with spaces around underscores", () => {
+			const tokens = parseInline("word _italic_ word");
+			expect(tokens).toHaveLength(3);
+			expect(tokens[1].type).toBe("em");
+			expect(tokens[1].value).toBe("italic");
+		});
+
+		it("should not parse __bold__inword as bold", () => {
+			const tokens = parseInline("foo__bold__bar");
+			expect(tokens).toHaveLength(1);
+			expect(tokens[0].type).toBe("text");
+			expect(tokens[0].value).toBe("foo__bold__bar");
+		});
+	});
+
 	describe("inline code", () => {
 		it("should parse `code` text", () => {
 			const tokens = parseInline("Use `console.log()` here");

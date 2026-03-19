@@ -187,9 +187,7 @@ export interface WebSocketTransportOptions<
 	buildResumePayload?: (runId: string) => Record<string, unknown>;
 }
 
-export interface TransportOptions<
-	TEvent extends { type: string } = SSEEvent,
-> {
+export interface TransportOptions<TEvent extends { type: string } = SSEEvent> {
 	sse?: DirectSSETransportOptions;
 	backgroundSSE?: BackgroundSSETransportOptions;
 	websocket?: WebSocketTransportOptions<TEvent>;

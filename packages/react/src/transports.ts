@@ -1,5 +1,5 @@
-import { parseSSEStream } from "@deltakit/core";
 import type { ContentPart, SSEEvent } from "@deltakit/core";
+import { parseSSEStream } from "@deltakit/core";
 import type {
 	BackgroundSSETransportOptions,
 	ChatTransport,
@@ -37,11 +37,17 @@ function resolveRunId(response: unknown): string {
 	return maybeRunId;
 }
 
-function resolveUrl(url: string | ((runId: string) => string), runId: string): string {
+function resolveUrl(
+	url: string | ((runId: string) => string),
+	runId: string,
+): string {
 	return typeof url === "function" ? url(runId) : url.replace(":runId", runId);
 }
 
-async function streamFetchSSE<TPart extends { type: string }, TEvent extends { type: string }>(
+async function streamFetchSSE<
+	TPart extends { type: string },
+	TEvent extends { type: string },
+>(
 	response: Response,
 	context: ChatTransportContext<TPart, TEvent>,
 	signal: AbortSignal,
@@ -386,9 +392,7 @@ export function createWebSocketTransport<
 export function resolveTransport<
 	TPart extends { type: string } = ContentPart,
 	TEvent extends { type: string } = SSEEvent,
->(
-	options: UseStreamChatOptions<TPart, TEvent>,
-): ChatTransport<TPart, TEvent> {
+>(options: UseStreamChatOptions<TPart, TEvent>): ChatTransport<TPart, TEvent> {
 	if (typeof options.transport === "object" && options.transport) {
 		return options.transport;
 	}
@@ -399,7 +403,7 @@ export function resolveTransport<
 		const config = options.transportOptions?.backgroundSSE;
 		if (!config) {
 			throw new Error(
-				"`transportOptions.backgroundSSE` is required when transport is \"background-sse\"",
+				'`transportOptions.backgroundSSE` is required when transport is "background-sse"',
 			);
 		}
 		return createBackgroundSSETransport(config);
@@ -409,7 +413,7 @@ export function resolveTransport<
 		const config = options.transportOptions?.websocket;
 		if (!config) {
 			throw new Error(
-				"`transportOptions.websocket` is required when transport is \"websocket\"",
+				'`transportOptions.websocket` is required when transport is "websocket"',
 			);
 		}
 		return createWebSocketTransport(config);
