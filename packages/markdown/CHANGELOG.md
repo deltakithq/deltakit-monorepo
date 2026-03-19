@@ -1,5 +1,11 @@
 # @deltakit/markdown
 
+## 0.2.4
+
+### Patch Changes
+
+- fdbb58d: Fix streaming fenced code blocks so their content renders progressively before the closing fence arrives.
+
 ## 0.2.3
 
 ### Patch Changes
