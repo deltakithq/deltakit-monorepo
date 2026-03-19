@@ -1,5 +1,13 @@
 # @deltakit/markdown
 
+## 0.2.3
+
+### Patch Changes
+
+- 37cb40a: Fix streaming table detection so partial pipe rows stay buffered until a valid
+  table separator arrives, preventing malformed table layouts during live
+  rendering.
+
 ## 0.2.2
 
 ### Patch Changes
