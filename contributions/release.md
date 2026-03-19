@@ -2,6 +2,11 @@
 
 This monorepo uses [Changesets](https://github.com/changesets/changesets) for version management and automated publishing to npm.
 
+The GitHub Actions pipeline is split into three workflows with separate responsibilities:
+- `CI` validates code on pull requests and pushes to `main`
+- `Release PR` creates or updates the Changesets version PR on normal pushes to `main`
+- `Publish` publishes to npm only after the version PR is merged
+
 ## Publishable Packages
 
 | Package | npm |
@@ -19,7 +24,7 @@ Developer creates changeset
 Push / merge to main
         |
         v
-Release workflow detects changeset
+Release PR workflow detects changeset
         |
         v
 Creates "Version Packages" PR
@@ -29,7 +34,7 @@ Creates "Version Packages" PR
 Merge the PR
         |
         v
-Release workflow publishes to npm
+Publish workflow publishes to npm
 ```
 
 ## Step-by-Step
@@ -59,7 +64,7 @@ git push
 
 ### 3. Merge to Main
 
-When your PR (or direct push) lands on `main`, the release workflow runs automatically and creates a **"chore(release): version packages"** PR.
+When your PR (or direct push) lands on `main`, the **Release PR** workflow runs automatically and creates or updates a **"chore(release): version packages"** PR.
 
 This PR contains:
 - Version bumps in `package.json` for each affected package
@@ -68,9 +73,17 @@ This PR contains:
 
 ### 4. Merge the Version PR
 
-Review the version PR and merge it. This triggers the release workflow again, which:
+Review the version PR and merge it. This triggers the **Publish** workflow, which:
 - Builds `@deltakit/core`, `@deltakit/react`, and `@deltakit/markdown`
 - Publishes all bumped packages to npm via `changeset publish`
+
+### Workflow Trigger Summary
+
+| Event | CI | Release PR | Publish |
+|---|---|---|---|
+| Pull request to `main` | Runs | Does not run | Does not run |
+| Normal push / merge to `main` | Runs | Runs | Skips |
+| Merge of `chore(release): version packages` | Runs | Skips | Runs |
 
 ## Bump Types
 
@@ -127,13 +140,13 @@ If the checkbox is disabled, enable it at the organization level first:
 
 ## Troubleshooting
 
-### "No changesets found" in release workflow
-The workflow found no `.changeset/*.md` files (excluding README.md). This is normal -- it means versions are already up to date and it will attempt to publish any unpublished versions.
+### "No changesets found" in Release PR workflow
+The workflow found no `.changeset/*.md` files (excluding README.md). This is normal -- it means there is nothing new to include in a version PR.
 
 ### "GitHub Actions is not permitted to create pull requests"
 Enable "Allow GitHub Actions to create and approve pull requests" in both org and repo settings (see Pre-requisites above).
 
-### Build fails during release
+### Build fails during publish
 The release script (`pnpm release`) only builds the three publishable packages: `core`, `react`, `markdown`. If the build fails, check the individual package's `tsup.config.ts` and source files.
 
 ### Package already published
