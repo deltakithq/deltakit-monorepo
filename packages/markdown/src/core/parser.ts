@@ -2,6 +2,10 @@ import {
 	createBlock,
 	detectBlockType,
 	extractCodeLanguage,
+	isPipeTableCandidate,
+	isPipeTableRow,
+	isPotentialTableSeparator,
+	isTableSeparator,
 	resetBlockIds,
 } from "./blocks.js";
 import { findBufferPoint } from "./inline.js";
@@ -46,6 +50,29 @@ export function parseIncremental(
 		switch (state) {
 			case "IDLE": {
 				if (isBlankLine) continue;
+
+				if (isPipeTableCandidate(line)) {
+					if (nextLine && isTableSeparator(nextLine)) {
+						currentRaw = `${line}\n${nextLine}`;
+						state = "IN_TABLE";
+						lineIdx++;
+						break;
+					}
+
+					if (bufferIncomplete) {
+						if (isLastLine) {
+							return { blocks, buffered: line };
+						}
+
+						if (
+							nextLine &&
+							isPotentialTableSeparator(nextLine) &&
+							lineIdx + 1 === lines.length - 1
+						) {
+							return { blocks, buffered: `${line}\n${nextLine}` };
+						}
+					}
+				}
 
 				// When bufferIncomplete is on and this is the last line,
 				// check if the line is a partial block marker that hasn't
@@ -279,7 +306,7 @@ export function parseIncremental(
 					blocks.push(createBlock("table", currentRaw, { complete: true }));
 					currentRaw = "";
 					state = "IDLE";
-				} else if (line.trim().includes("|")) {
+				} else if (isPipeTableRow(line)) {
 					currentRaw += `\n${line}`;
 				} else {
 					// Non-table line ends the table

@@ -249,6 +249,16 @@ function renderTable(
 	components: Required<ComponentOverrides>,
 ): ReactNode {
 	const lines = block.raw.split("\n").filter((l) => l.trim().length > 0);
+	const separatorIndex = lines.findIndex((line) => isTableSeparator(line));
+
+	if (separatorIndex === -1) {
+		return createElement(
+			"div",
+			{ key: block.id },
+			components.p({ children: block.raw }),
+		);
+	}
+
 	if (lines.length === 0) {
 		return createElement(
 			"div",
