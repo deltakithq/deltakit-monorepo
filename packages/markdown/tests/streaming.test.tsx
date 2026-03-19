@@ -138,6 +138,20 @@ describe("streaming simulation", () => {
 			expect(container.querySelector("code")).toBeTruthy();
 		});
 
+		it("should render incomplete code block content while streaming", () => {
+			const { container } = render(
+				createElement(StreamingMarkdown, {
+					content: "```js\nconsole.log('streaming')",
+					batchMs: 0,
+				}),
+			);
+			const code = container.querySelector("code");
+			expect(container.querySelector("pre")).toBeTruthy();
+			expect(code).toBeTruthy();
+			expect(code?.textContent).toContain("console.log('streaming')");
+			expect(code?.className).toContain("language-js");
+		});
+
 		it("should render bold text", () => {
 			const { container } = render(
 				createElement(StreamingMarkdown, {

@@ -174,19 +174,6 @@ function renderCodeBlock(
 	block: Block,
 	components: Required<ComponentOverrides>,
 ): ReactNode {
-	if (!block.complete) {
-		// Pending code block — render empty skeleton
-		return createElement(
-			"div",
-			{ key: block.id },
-			components.code({
-				language: block.language,
-				children: "",
-				inline: false,
-			}),
-		);
-	}
-
 	const content = extractCodeContent(block.raw);
 	return createElement(
 		"div",
