@@ -1,3 +1,4 @@
+---
 "@deltakit/markdown": patch
 ---
 
