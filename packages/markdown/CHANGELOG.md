@@ -1,5 +1,11 @@
 # @deltakit/markdown
 
+## 0.2.2
+
+### Patch Changes
+
+- 7d59084: fix(markdown): prevent intraword underscores from triggering emphasis (e.g. `get_skill_users()` no longer renders as italic)
+
 ## 0.2.1
 
 ### Patch Changes
