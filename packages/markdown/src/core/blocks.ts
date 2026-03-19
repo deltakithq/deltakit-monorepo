@@ -54,11 +54,6 @@ export function detectBlockType(line: string): {
 		return { type: "list", listStyle: "ordered" };
 	}
 
-	// Table: starts with |
-	if (/^\|/.test(trimmed)) {
-		return { type: "table" };
-	}
-
 	// Default: paragraph (any non-empty text)
 	if (trimmed.length > 0) {
 		return { type: "paragraph" };
@@ -128,7 +123,29 @@ export function extractCodeLanguage(fenceLine: string): string | undefined {
 /** Check if a line is a table separator row (e.g., |---|---|) */
 export function isTableSeparator(line: string): boolean {
 	const trimmed = line.trim();
-	return /^\|?(\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?\s*$/.test(trimmed);
+	return /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(trimmed);
+}
+
+/** Check if a line could be a pipe-table header row */
+export function isPipeTableRow(line: string): boolean {
+	const trimmed = line.trim();
+	return /^\|.*\|\s*$/.test(trimmed);
+}
+
+/** Check if a line starts like a pipe table row, even if incomplete */
+export function isPipeTableCandidate(line: string): boolean {
+	return line.trimStart().startsWith("|");
+}
+
+/**
+ * Check if a line looks like the start of a table separator row but is not yet
+ * complete, e.g. "|-" or "| :--".
+ */
+export function isPotentialTableSeparator(line: string): boolean {
+	const trimmed = line.trim();
+	if (!trimmed.startsWith("|")) return false;
+	if (isTableSeparator(trimmed)) return false;
+	return /^[|:\-\s]+$/.test(trimmed);
 }
 
 /** Parse a table row into cells */

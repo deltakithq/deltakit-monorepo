@@ -331,7 +331,7 @@ describe("comprehensive markdown parsing", () => {
 		it("should handle incomplete table", () => {
 			const result = parseIncremental("| A | B |\n| 1 | 2 |");
 			expect(result.blocks).toHaveLength(1);
-			expect(result.blocks[0].type).toBe("table");
+			expect(result.blocks[0].type).toBe("paragraph");
 			expect(result.blocks[0].complete).toBe(false);
 		});
 
@@ -602,6 +602,24 @@ Final paragraph.
 
 		it("should handle incomplete table", () => {
 			const result = parseIncremental("| Col");
+			expect(result.blocks).toHaveLength(0);
+			expect(result.buffered).toBe("| Col");
+		});
+
+		it("should buffer a table header row until a separator arrives", () => {
+			const result = parseIncremental("| Col A | Col B |");
+			expect(result.blocks).toHaveLength(0);
+			expect(result.buffered).toBe("| Col A | Col B |");
+		});
+
+		it("should buffer a partial separator row for a pending table", () => {
+			const result = parseIncremental("| Col A | Col B |\n|-");
+			expect(result.blocks).toHaveLength(0);
+			expect(result.buffered).toBe("| Col A | Col B |\n|-");
+		});
+
+		it("should start rendering a table once the separator row is valid", () => {
+			const result = parseIncremental("| Col A | Col B |\n|---|---|");
 			expect(result.blocks).toHaveLength(1);
 			expect(result.blocks[0].type).toBe("table");
 			expect(result.blocks[0].complete).toBe(false);
