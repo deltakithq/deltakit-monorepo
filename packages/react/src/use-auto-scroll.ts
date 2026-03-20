@@ -30,23 +30,47 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 	// MutationObserver / ResizeObserver callbacks fire.
 	const rafRef = useRef<number | null>(null);
 	const lastAutoScrollHeightRef = useRef<number | null>(null);
+	const pendingVerificationFramesRef = useRef(0);
 
 	const scheduleScroll = useCallback(() => {
+		pendingVerificationFramesRef.current = Math.max(
+			pendingVerificationFramesRef.current,
+			1,
+		);
 		if (rafRef.current != null) return;
-		rafRef.current = requestAnimationFrame(() => {
+
+		const tick = () => {
 			rafRef.current = null;
 			const el = ref.current;
-			if (!el || !isAtBottomRef.current) return;
+			if (!el || !isAtBottomRef.current) {
+				pendingVerificationFramesRef.current = 0;
+				return;
+			}
 
 			const nextHeight = el.scrollHeight;
-			if (lastAutoScrollHeightRef.current === nextHeight) return;
+			const heightChanged = lastAutoScrollHeightRef.current !== nextHeight;
+			const distanceFromBottom = nextHeight - el.scrollTop - el.clientHeight;
 
-			lastAutoScrollHeightRef.current = nextHeight;
+			if (heightChanged || distanceFromBottom > 0) {
+				lastAutoScrollHeightRef.current = nextHeight;
+				pendingVerificationFramesRef.current = 1;
 
-			// Keep the viewport pinned during streaming without restarting a
-			// smooth scroll animation on every DOM mutation.
-			el.scrollTop = nextHeight;
-		});
+				// Keep the viewport pinned during streaming without restarting a
+				// smooth scroll animation on every DOM mutation.
+				el.scrollTop = nextHeight;
+			} else {
+				pendingVerificationFramesRef.current = Math.max(
+					pendingVerificationFramesRef.current - 1,
+					0,
+				);
+			}
+
+			if (pendingVerificationFramesRef.current > 0) {
+				rafRef.current = requestAnimationFrame(tick);
+			}
+		};
+
+		rafRef.current = requestAnimationFrame(tick);
 	}, []);
 
 	// -----------------------------------------------------------------------
@@ -64,6 +88,7 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 			isAtBottomRef.current = atBottom;
 			if (!atBottom) {
 				lastAutoScrollHeightRef.current = null;
+				pendingVerificationFramesRef.current = 0;
 			}
 			setIsAtBottom((prev) => (prev === atBottom ? prev : atBottom));
 		};
@@ -131,6 +156,7 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 				cancelAnimationFrame(rafRef.current);
 				rafRef.current = null;
 			}
+			pendingVerificationFramesRef.current = 0;
 		};
 	}, []);
 
@@ -145,6 +171,7 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 
 		isAtBottomRef.current = true;
 		lastAutoScrollHeightRef.current = el.scrollHeight;
+		pendingVerificationFramesRef.current = 0;
 		setIsAtBottom(true);
 		el.scrollTo({ top: el.scrollHeight, behavior });
 	}, [behavior]);

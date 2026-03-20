@@ -1,5 +1,11 @@
 # @deltakit/markdown
 
+## 0.2.5
+
+### Patch Changes
+
+- Improve streaming chat UX by removing the blinking markdown caret effect from live message rendering and making auto-scroll stay pinned more reliably during fast token streams.
+
 ## 0.2.4
 
 ### Patch Changes

@@ -151,7 +151,9 @@ function ChatAgnoBackgroundTask() {
 					Background SSE demo. Start a message, navigate to another route, then
 					come back to resume the stream.
 					{(runId ?? activeRunId) && (
-						<span className="ml-2 text-neutral-500">Run: {runId ?? activeRunId}</span>
+						<span className="ml-2 text-neutral-500">
+							Run: {runId ?? activeRunId}
+						</span>
 					)}
 				</div>
 			</div>
@@ -265,7 +267,9 @@ function ChatAgnoBackgroundTask() {
 							name="message"
 							placeholder="Type a message..."
 							autoComplete="off"
-							className="flex-1 rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-neutral-500"
+							className={`flex-1 rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-neutral-500 ${
+								isLoading ? "caret-transparent" : ""
+							}`}
 						/>
 						{isLoading ? (
 							<button
