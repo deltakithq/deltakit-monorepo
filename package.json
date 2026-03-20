@@ -30,6 +30,12 @@
 		"node": "22.12.0",
 		"pnpm": ">=9.0.0"
 	},
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"esbuild",
+			"lightningcss"
+		]
+	},
 	"lint-staged": {
 		"*.{js,jsx,ts,tsx,json,jsonc,css,md,yml,yaml}": [
 			"biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"
