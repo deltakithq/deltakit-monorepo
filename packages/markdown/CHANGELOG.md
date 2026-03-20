@@ -1,5 +1,11 @@
 # @deltakit/markdown
 
+## 0.2.6
+
+### Patch Changes
+
+- Reduce jagged table streaming by holding back an incomplete trailing table row until the row reaches a newline.
+
 ## 0.2.5
 
 ### Patch Changes

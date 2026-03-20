@@ -235,7 +235,11 @@ function renderTable(
 	block: Block,
 	components: Required<ComponentOverrides>,
 ): ReactNode {
-	const lines = block.raw.split("\n").filter((l) => l.trim().length > 0);
+	const allLines = block.raw.split("\n").filter((l) => l.trim().length > 0);
+	const lines =
+		!block.complete && !block.raw.endsWith("\n") && allLines.length > 2
+			? allLines.slice(0, -1)
+			: allLines;
 	const separatorIndex = lines.findIndex((line) => isTableSeparator(line));
 
 	if (separatorIndex === -1) {

@@ -185,6 +185,31 @@ describe("streaming simulation", () => {
 			expect(link?.getAttribute("href")).toBe("https://example.com");
 		});
 
+		it("should hold back an incomplete trailing table row until newline", async () => {
+			const partial = render(
+				createElement(StreamingMarkdown, {
+					content: "| Name | Age |\n|------|-----|\n| Alice",
+					batchMs: 0,
+				}),
+			);
+			const initialTable = partial.container.querySelector("table");
+			expect(initialTable).toBeTruthy();
+			expect(initialTable?.textContent).not.toContain("Alice");
+
+			const completed = render(
+				createElement(StreamingMarkdown, {
+					content: "| Name | Age |\n|------|-----|\n| Alice | 30 |\n",
+					batchMs: 0,
+				}),
+			);
+
+			await waitFor(() => {
+				const completedTable = completed.container.querySelector("table");
+				expect(completedTable?.textContent).toContain("Alice");
+				expect(completedTable?.textContent).toContain("30");
+			});
+		});
+
 		it("should render image skeleton first, then reveal image once loaded", async () => {
 			const restore = installMockImage(() => "load");
 			try {
