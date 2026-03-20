@@ -1,6 +1,6 @@
 {
 	"name": "@deltakit/react",
-	"version": "0.2.3",
+	"version": "0.2.4",
 	"description": "React hooks for streaming AI conversations with real-time updates",
 	"homepage": "https://deltakit.dev",
 	"type": "module",
@@ -37,7 +37,7 @@
 		"clean": "rm -rf dist"
 	},
 	"dependencies": {
-		"@deltakit/core": "workspace:*"
+		"@deltakit/core": "^0.2.0"
 	},
 	"devDependencies": {
 		"@testing-library/react": "^16.3.0",
