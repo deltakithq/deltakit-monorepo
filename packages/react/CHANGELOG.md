@@ -1,5 +1,11 @@
 # @deltakit/react
 
+## 0.2.4
+
+### Patch Changes
+
+- Fix the published package manifest so `@deltakit/react` depends on the npm version of `@deltakit/core` instead of the workspace protocol.
+
 ## 0.2.3
 
 ### Patch Changes
