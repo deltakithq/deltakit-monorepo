@@ -1,5 +1,11 @@
 # @deltakit/react
 
+## 0.2.3
+
+### Patch Changes
+
+- Improve streaming chat UX by removing the blinking markdown caret effect from live message rendering and making auto-scroll stay pinned more reliably during fast token streams.
+
 ## 0.2.2
 
 ### Patch Changes

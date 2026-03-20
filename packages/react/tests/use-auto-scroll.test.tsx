@@ -4,8 +4,17 @@ import { describe, expect, it, vi } from "vitest";
 import { useAutoScroll } from "../src/use-auto-scroll";
 
 class ResizeObserverMock {
+	private readonly callback?: ResizeObserverCallback;
 	observe = vi.fn();
 	disconnect = vi.fn();
+
+	constructor(callback?: ResizeObserverCallback) {
+		this.callback = callback;
+	}
+
+	trigger() {
+		this.callback?.([], this as unknown as ResizeObserver);
+	}
 }
 
 class MutationObserverMock {
@@ -133,15 +142,26 @@ function HookHarness({
 	return <div ref={value.ref}>{children}</div>;
 }
 
+function advanceFrame() {
+	act(() => {
+		vi.advanceTimersByTime(16);
+	});
+}
+
 describe("useAutoScroll", () => {
 	it("keeps a pinned container at the bottom with instant frame updates", () => {
 		vi.useFakeTimers();
 
 		const mutationObservers: MutationObserverMock[] = [];
+		const resizeObservers: ResizeObserverMock[] = [];
 
 		vi.stubGlobal(
 			"ResizeObserver",
-			vi.fn(() => new ResizeObserverMock()),
+			vi.fn((callback: ResizeObserverCallback) => {
+				const instance = new ResizeObserverMock(callback);
+				resizeObservers.push(instance);
+				return instance;
+			}),
 		);
 		vi.stubGlobal(
 			"MutationObserver",
@@ -181,10 +201,17 @@ describe("useAutoScroll", () => {
 			mutationObservers[0]?.trigger();
 			el.scrollHeight = 1200;
 			mutationObservers[0]?.trigger();
-			vi.runAllTimers();
 		});
-
+		advanceFrame();
 		expect(el.scrollTop).toBe(1200);
+
+		act(() => {
+			el.scrollHeight = 1300;
+			resizeObservers[0]?.trigger();
+		});
+		advanceFrame();
+
+		expect(el.scrollTop).toBe(1300);
 		expect(scrollTo).not.toHaveBeenCalled();
 		expect(onRender.mock.lastCall?.[0].isAtBottom).toBe(true);
 
@@ -233,8 +260,13 @@ describe("useAutoScroll", () => {
 				<HookHarness deps={[[{ id: 1 }, { id: 2 }]]} onRender={onRender} />,
 			);
 			mutationObservers[0]?.trigger();
-			vi.runAllTimers();
 		});
+		advanceFrame();
+
+		act(() => {
+			el.scrollHeight = 1400;
+		});
+		advanceFrame();
 
 		expect(onRender.mock.lastCall?.[0].isAtBottom).toBe(false);
 		expect(el.scrollTop).toBe(200);
@@ -247,7 +279,9 @@ describe("useAutoScroll", () => {
 	it("scrollToBottom re-pins and honors the configured behavior", () => {
 		vi.stubGlobal(
 			"ResizeObserver",
-			vi.fn(() => new ResizeObserverMock()),
+			vi.fn(
+				(callback: ResizeObserverCallback) => new ResizeObserverMock(callback),
+			),
 		);
 		vi.stubGlobal(
 			"MutationObserver",
@@ -282,6 +316,55 @@ describe("useAutoScroll", () => {
 			behavior: "smooth",
 		});
 
+		vi.unstubAllGlobals();
+	});
+
+	it("stays pinned across consecutive frames when content keeps growing", () => {
+		vi.useFakeTimers();
+
+		vi.stubGlobal(
+			"ResizeObserver",
+			vi.fn(
+				(callback: ResizeObserverCallback) => new ResizeObserverMock(callback),
+			),
+		);
+		vi.stubGlobal(
+			"MutationObserver",
+			vi.fn((callback: MutationCallback) => new MutationObserverMock(callback)),
+		);
+
+		const container = createContainer();
+		const onRender = vi.fn();
+		const view = render(
+			<HookHarness deps={[[{ id: 1 }]]} onRender={onRender} />,
+		);
+		const el = view.container.firstElementChild as HTMLDivElement | null;
+		if (!el) throw new Error("Expected rendered div");
+		const { scrollTo } = attachScrollableMetrics(el, {
+			scrollHeight: container.el.scrollHeight,
+			clientHeight: container.el.clientHeight,
+			scrollTop: container.el.scrollTop,
+		});
+
+		act(() => {
+			el.scrollHeight = 1100;
+			view.rerender(
+				<HookHarness deps={[[{ id: 1 }, { id: 2 }]]} onRender={onRender} />,
+			);
+		});
+		advanceFrame();
+		expect(el.scrollTop).toBe(1100);
+
+		act(() => {
+			el.scrollHeight = 1400;
+		});
+		advanceFrame();
+
+		expect(el.scrollTop).toBe(1400);
+		expect(scrollTo).not.toHaveBeenCalled();
+		expect(onRender.mock.lastCall?.[0].isAtBottom).toBe(true);
+
+		vi.useRealTimers();
 		vi.unstubAllGlobals();
 	});
 });
