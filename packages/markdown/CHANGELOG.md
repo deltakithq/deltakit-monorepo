@@ -1,5 +1,11 @@
 # @deltakit/markdown
 
+## 0.2.8
+
+### Patch Changes
+
+- 8823829: Add regression coverage for fenced ASCII diagrams so spacing-heavy code blocks stay on the code rendering path during streaming.
+
 ## 0.2.6
 
 ### Patch Changes
