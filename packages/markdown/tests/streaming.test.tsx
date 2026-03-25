@@ -4,6 +4,48 @@ import { describe, expect, it } from "vitest";
 import { StreamingMarkdown } from "../src/component.js";
 import { parseIncremental } from "../src/core/parser.js";
 
+const ASCII_DIAGRAM_BODY = [
+	"+----------------------+      +----------------------+      +----------------------+",
+	"| User                 |      | Forum                |      | Post                 |",
+	"+----------------------+      +----------------------+      +----------------------+",
+	"| id (PK)              |<-----| creatorId            |<-----| authorId             |",
+	"| email                |      | id (PK)              |      | forumId              |",
+	"| username             |      | name                 |      | id (PK)              |",
+	"| passwordHash         |      | slug (UQ)            |      | title                |",
+	"| bio                  |      | description          |      | content              |",
+	"| avatarUrl            |      | createdAt            |      | createdAt            |",
+	"+----------------------+      +----------------------+      +----------------------+",
+	"",
+	"         |",
+	"         v",
+	"                          +----------------------+",
+	"                          | Comment              |",
+	"                          +----------------------+",
+	"                          | authorId             |<---------------------------+",
+	"                          | postId               |                            |",
+	"                          | parentId             |----> Self-referencing (nested replies)",
+	"                          | id (PK)              |                            |",
+	"                          | content              |                            |",
+	"                          +----------------------+                            |",
+	"",
+	"+----------------------+      (Polymorphic - targets posts OR comments)",
+	"| Vote                 |",
+	"+----------------------+",
+	"| id (PK)              |",
+	"| userId               |",
+	'| targetType           |      ("post" or "comment")',
+	"| targetId             |",
+	"| value                |      (1 = upvote, -1 = downvote)",
+	"+----------------------+",
+].join("\n");
+
+const ASCII_DIAGRAM_FENCED = `\`\`\`text
+${ASCII_DIAGRAM_BODY}
+\`\`\``;
+
+const ASCII_DIAGRAM_PARTIAL = `\`\`\`text
+${ASCII_DIAGRAM_BODY.split("\n").slice(0, 18).join("\n")}`;
+
 function installMockImage(
 	resolve: (src: string) => "load" | "error",
 ): () => void {
@@ -102,6 +144,32 @@ describe("streaming simulation", () => {
 				expect(snapshot).toBe("# Title");
 			}
 		});
+
+		it("should keep a fenced ASCII diagram on the code path while streaming", () => {
+			const openingFence = parseIncremental("```text\n");
+			expect(openingFence.blocks).toHaveLength(1);
+			expect(openingFence.blocks[0].type).toBe("code");
+			expect(openingFence.blocks[0].complete).toBe(false);
+
+			const partial = parseIncremental(ASCII_DIAGRAM_PARTIAL);
+			expect(partial.blocks).toHaveLength(1);
+			expect(partial.blocks[0].type).toBe("code");
+			expect(partial.blocks[0].complete).toBe(false);
+			expect(partial.blocks[0].type).not.toBe("paragraph");
+			expect(partial.blocks[0].type).not.toBe("table");
+			expect(partial.blocks[0].type).not.toBe("list");
+			expect(partial.blocks[0].type).not.toBe("blockquote");
+
+			const complete = parseIncremental(ASCII_DIAGRAM_FENCED);
+			expect(complete.blocks).toHaveLength(1);
+			expect(complete.blocks[0].type).toBe("code");
+			expect(complete.blocks[0].complete).toBe(true);
+			expect(complete.blocks[0].language).toBe("text");
+			expect(complete.blocks[0].type).not.toBe("paragraph");
+			expect(complete.blocks[0].type).not.toBe("table");
+			expect(complete.blocks[0].type).not.toBe("list");
+			expect(complete.blocks[0].type).not.toBe("blockquote");
+		});
 	});
 
 	describe("component rendering", () => {
@@ -150,6 +218,80 @@ describe("streaming simulation", () => {
 			expect(code).toBeTruthy();
 			expect(code?.textContent).toContain("console.log('streaming')");
 			expect(code?.className).toContain("language-js");
+		});
+
+		it("should preserve ASCII diagram whitespace inside fenced code blocks", () => {
+			const { container } = render(
+				createElement(StreamingMarkdown, {
+					content: ASCII_DIAGRAM_FENCED,
+					batchMs: 0,
+				}),
+			);
+
+			const pre = container.querySelector("pre");
+			const code = container.querySelector("code");
+
+			expect(pre).toBeTruthy();
+			expect(code).toBeTruthy();
+			expect(code?.textContent).toBe(ASCII_DIAGRAM_BODY);
+			expect(code?.textContent).toContain(
+				"| parentId             |----> Self-referencing (nested replies)",
+			);
+			expect(code?.textContent).toContain(
+				"+----------------------+      (Polymorphic - targets posts OR comments)",
+			);
+			expect(code?.textContent).toContain(
+				'| targetType           |      ("post" or "comment")',
+			);
+			expect(code?.textContent).toContain(
+				"| value                |      (1 = upvote, -1 = downvote)",
+			);
+		});
+
+		it("should render a partial fenced ASCII diagram as code instead of other block types", () => {
+			const { container } = render(
+				createElement(StreamingMarkdown, {
+					content: ASCII_DIAGRAM_PARTIAL,
+					batchMs: 0,
+				}),
+			);
+
+			const pre = container.querySelector("pre");
+			const code = container.querySelector("code");
+
+			expect(pre).toBeTruthy();
+			expect(code).toBeTruthy();
+			expect(container.querySelector("table")).toBeFalsy();
+			expect(container.querySelector("blockquote")).toBeFalsy();
+			expect(container.querySelector("ul")).toBeFalsy();
+			expect(container.querySelector("ol")).toBeFalsy();
+			expect(code?.textContent).toBe(
+				ASCII_DIAGRAM_BODY.split("\n").slice(0, 18).join("\n"),
+			);
+		});
+
+		it("should render fenced code blocks nested inside list items", () => {
+			const { container } = render(
+				createElement(StreamingMarkdown, {
+					content:
+						'1. .env.example - Now includes:\n\n   ```env\n   OPENAI_API_KEY="sk-your-openai-api-key-here"\n   OPENAI_BASE_URL="https://api.openai.com/v1"\n   ```\n\n',
+					batchMs: 0,
+				}),
+			);
+
+			const list = container.querySelector("ol");
+			const items = container.querySelectorAll("li");
+			const pre = container.querySelector("pre");
+
+			expect(list).toBeTruthy();
+			expect(items).toHaveLength(1);
+			expect(pre).toBeTruthy();
+			expect(pre?.textContent).toContain(
+				'OPENAI_API_KEY="sk-your-openai-api-key-here"',
+			);
+			expect(pre?.textContent).toContain(
+				'OPENAI_BASE_URL="https://api.openai.com/v1"',
+			);
 		});
 
 		it("should render bold text", () => {

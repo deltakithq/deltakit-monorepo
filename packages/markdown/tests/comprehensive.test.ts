@@ -158,6 +158,12 @@ describe("comprehensive markdown parsing", () => {
 				expect(result.blocks).toHaveLength(1);
 				expect(result.blocks[0].type).toBe("list");
 			});
+
+			it("should handle ordered list items whose text starts with a dot", () => {
+				const result = parseIncremental("1. .env.example\n2. .gitignore\n\n");
+				expect(result.blocks).toHaveLength(1);
+				expect(result.blocks[0].type).toBe("list");
+			});
 		});
 
 		describe("mixed lists", () => {
@@ -487,6 +493,15 @@ Final paragraph.
 			expect(result.blocks[0].type).toBe("list");
 			expect(result.blocks[1].type).toBe("code");
 			expect(result.blocks[2].type).toBe("list");
+		});
+
+		it("should keep indented fenced code attached to a list item", () => {
+			const result = parseIncremental(
+				"1. .env.example - Now includes:\n\n   ```env\n   OPENAI_API_KEY=\"sk-your-openai-api-key-here\"\n   OPENAI_BASE_URL=\"https://api.openai.com/v1\"\n   ```\n\n",
+			);
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("list");
+			expect(result.blocks[0].raw).toContain("```env");
 		});
 
 		it("should handle multiple headings", () => {

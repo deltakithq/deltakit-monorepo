@@ -203,24 +203,32 @@ function renderList(
 	block: Block,
 	components: Required<ComponentOverrides>,
 ): ReactNode {
-	const lines = block.raw.split("\n").filter((l) => l.trim().length > 0);
-	const items: ReactNode[] = [];
+	const items = parseListItems(block.raw).map((item, index) => {
+		if (item.content.trim().length === 0) {
+			return null;
+		}
 
-	for (const line of lines) {
-		const content = line
-			.replace(/^\s*[-*+]\s+/, "")
-			.replace(/^\s*\d+\.\s+(?![\d.])/, "");
-		// Skip empty list items during streaming to prevent choppy bullets
-		if (content.trim().length === 0) continue;
-		const inlineNodes = renderInlineTokens(parseInline(content), components);
-		items.push(
-			createElement(
-				Fragment,
-				{ key: `li-${items.length}` },
-				components.li({ children: inlineNodes }),
-			),
+		const nestedBlocks = parseIncremental(item.content, {
+			bufferIncomplete: false,
+		}).blocks;
+
+		const children =
+			nestedBlocks.length > 0
+				? nestedBlocks.map((nestedBlock) =>
+						createElement(
+							Fragment,
+							{ key: `li-${index}-block-${nestedBlock.id}` },
+							renderBlock(nestedBlock, components),
+						),
+					)
+				: renderInlineTokens(parseInline(item.content), components);
+
+		return createElement(
+			Fragment,
+			{ key: `li-${index}` },
+			components.li({ children }),
 		);
-	}
+	});
 
 	const ListComponent =
 		block.listStyle === "ordered" ? components.ol : components.ul;
@@ -229,6 +237,71 @@ function renderList(
 		{ key: block.id },
 		ListComponent({ children: items }),
 	);
+}
+
+function parseListItems(raw: string): Array<{ content: string }> {
+	const lines = raw.split("\n");
+	const items: Array<{ lines: string[] }> = [];
+	let currentItem: { lines: string[] } | null = null;
+
+	for (const line of lines) {
+		if (/^\s*(?:[-*+]\s+|\d+\.(?!\d)\s+)/.test(line)) {
+			if (currentItem) {
+				items.push(currentItem);
+			}
+
+			currentItem = {
+				lines: [
+					line
+						.replace(/^\s*[-*+]\s+/, "")
+						.replace(/^\s*\d+\.(?!\d)\s+/, ""),
+				],
+			};
+			continue;
+		}
+
+		if (currentItem) {
+			currentItem.lines.push(line);
+		}
+	}
+
+	if (currentItem) {
+		items.push(currentItem);
+	}
+
+	return items
+		.map((item) => ({ content: normalizeListItemContent(item.lines) }))
+		.filter((item) => item.content.trim().length > 0);
+}
+
+function normalizeListItemContent(lines: string[]): string {
+	if (lines.length <= 1) {
+		return lines[0] ?? "";
+	}
+
+	const [firstLine, ...continuationLines] = lines;
+	const nonEmptyContinuation = continuationLines.filter(
+		(line) => line.trim().length > 0,
+	);
+	const minIndent =
+		nonEmptyContinuation.length > 0
+			? Math.min(
+					...nonEmptyContinuation.map((line) => {
+						const match = line.match(/^[ \t]*/);
+						return match?.[0].length ?? 0;
+					}),
+				)
+			: 0;
+
+	const normalizedContinuation = continuationLines.map((line) => {
+		if (line.trim().length === 0 || minIndent === 0) {
+			return line;
+		}
+
+		return line.slice(Math.min(minIndent, line.length));
+	});
+
+	return [firstLine, ...normalizedContinuation].join("\n");
 }
 
 function renderTable(

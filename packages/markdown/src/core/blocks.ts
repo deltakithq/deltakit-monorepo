@@ -50,7 +50,7 @@ export function detectBlockType(line: string): {
 	}
 
 	// Ordered list: 1. 2. etc. (but not version numbers like 1.0 or 2.5.1)
-	if (/^\d+\.\s+(?![\d.])/.test(trimmed)) {
+	if (/^\d+\.(?!\d)\s+/.test(trimmed)) {
 		return { type: "list", listStyle: "ordered" };
 	}
 

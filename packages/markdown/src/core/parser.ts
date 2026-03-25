@@ -249,6 +249,10 @@ export function parseIncremental(
 					// Check if the next line continues the list
 					if (nextLine && isListItem(nextLine)) {
 						currentRaw += `\n${line}`;
+					} else if (nextLine && isContinuation(nextLine)) {
+						// Blank line inside a list item before an indented continuation,
+						// including fenced code blocks nested under the item.
+						currentRaw += `\n${line}`;
 					} else if (nextLine && isIndentedContinuation(nextLine)) {
 						// Multi-paragraph list item: indented content after blank line
 						currentRaw += `\n${line}`;
@@ -459,7 +463,7 @@ function splitLines(content: string): string[] {
 /** Check if a line is a list item */
 function isListItem(line: string): boolean {
 	const trimmed = line.trimStart();
-	return /^[-*+]\s+/.test(trimmed) || /^\d+\.\s+(?![\d.])/.test(trimmed);
+	return /^[-*+]\s+/.test(trimmed) || /^\d+\.(?!\d)\s+/.test(trimmed);
 }
 
 /** Check if a line is a continuation of a list item (indented) */
@@ -478,7 +482,7 @@ function isIndentedContinuation(line: string): boolean {
 	// Doesn't start a new block
 	if (/^#{1,6}\s/.test(trimmed)) return false; // heading
 	if (/^[-*+]\s+/.test(trimmed)) return false; // unordered list
-	if (/^\d+\.\s+(?![\d.])/.test(trimmed)) return false; // ordered list
+	if (/^\d+\.(?!\d)\s+/.test(trimmed)) return false; // ordered list
 	if (/^```|~~~/.test(trimmed)) return false; // code fence
 	if (/^\|/.test(trimmed)) return false; // table
 	// Non-empty line
@@ -491,7 +495,7 @@ function isIndentedContinuation(line: string): boolean {
 function getListStyle(line: string): "ordered" | "unordered" | null {
 	const trimmed = line.trimStart();
 	if (/^[-*+]\s+/.test(trimmed)) return "unordered";
-	if (/^\d+\.\s+(?![\d.])/.test(trimmed)) return "ordered";
+	if (/^\d+\.(?!\d)\s+/.test(trimmed)) return "ordered";
 	return null;
 }
 
@@ -507,7 +511,7 @@ function isLazyContinuation(line: string): boolean {
 	// Doesn't start a new block
 	if (/^#{1,6}\s/.test(trimmed)) return false; // heading
 	if (/^[-*+]\s+/.test(trimmed)) return false; // unordered list
-	if (/^\d+\.\s+(?![\d.])/.test(trimmed)) return false; // ordered list
+	if (/^\d+\.(?!\d)\s+/.test(trimmed)) return false; // ordered list
 	if (/^```|~~~/.test(trimmed)) return false; // code fence
 	if (/^\|/.test(trimmed)) return false; // table
 	if (/^>\s?/.test(trimmed)) return false; // nested blockquote
