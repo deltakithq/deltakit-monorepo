@@ -1,6 +1,6 @@
 {
 	"name": "@deltakit/core",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Build AI chat backends with SSE streaming and type-safe message handling",
 	"homepage": "https://deltakit.dev",
 	"type": "module",

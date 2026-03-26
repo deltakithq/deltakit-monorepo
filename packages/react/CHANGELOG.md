@@ -1,5 +1,13 @@
 # @deltakit/react
 
+## 0.2.5
+
+### Patch Changes
+
+- test: bump all packages to verify independent publishing
+- Updated dependencies
+  - @deltakit/core@0.2.1
+
 ## 0.2.4
 
 ### Patch Changes
