@@ -44,6 +44,7 @@
 		"check": "biome check src/",
 		"typecheck": "tsc --noEmit",
 		"test": "vitest run",
+		"test:coverage": "vitest run --coverage",
 		"test:watch": "vitest",
 		"bench": "vitest bench",
 		"bench:save": "vitest bench --outputJson benchmarks/results/latest.json",
@@ -51,6 +52,7 @@
 	},
 	"devDependencies": {
 		"@testing-library/react": "^16.3.0",
+		"@vitest/coverage-v8": "^3.2.1",
 		"@types/react": "^18.3.18",
 		"@types/react-dom": "^18.3.5",
 		"jsdom": "^28.1.0",

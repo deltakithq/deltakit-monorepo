@@ -32,8 +32,11 @@ tasks:
       - 'biome.json'
 
   test:
-    command: 'echo'
-    args: ['No tests for core package']
+    command: 'pnpm'
+    args: ['exec', 'vitest', 'run']
+    inputs:
+      - 'src/**/*'
+      - 'tests/**/*'
 
   typecheck:
     command: 'pnpm'

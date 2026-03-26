@@ -14,3 +14,7 @@ echo "Typechecking packages..."
 pnpm --filter @deltakit/core exec tsc --noEmit
 pnpm --filter @deltakit/react exec tsc --noEmit
 pnpm --filter @deltakit/markdown exec tsc --noEmit
+
+# 4. Run tests across all packages
+echo "Running tests..."
+pnpm test
