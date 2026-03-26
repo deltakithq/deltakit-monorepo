@@ -252,9 +252,7 @@ function parseListItems(raw: string): Array<{ content: string }> {
 
 			currentItem = {
 				lines: [
-					line
-						.replace(/^\s*[-*+]\s+/, "")
-						.replace(/^\s*\d+\.(?!\d)\s+/, ""),
+					line.replace(/^\s*[-*+]\s+/, "").replace(/^\s*\d+\.(?!\d)\s+/, ""),
 				],
 			};
 			continue;
