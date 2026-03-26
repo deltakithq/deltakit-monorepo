@@ -14,6 +14,8 @@
 		"install:clean": "rm -rf node_modules pnpm-lock.yaml && pnpm install",
 		"changeset": "changeset",
 		"changeset:version": "changeset version",
+		"test": "pnpm --filter './packages/*' run test",
+		"test:coverage": "pnpm --filter './packages/*' run test:coverage",
 		"prepare": "husky"
 	},
 	"devDependencies": {

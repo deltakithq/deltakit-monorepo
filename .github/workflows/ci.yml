@@ -98,6 +98,9 @@ jobs:
       - name: Build
         run: moon run core:build
 
+      - name: Test
+        run: moon run core:test
+
   ci-markdown:
     name: "CI: Markdown"
     needs: changes
