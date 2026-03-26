@@ -268,20 +268,25 @@ export function parseIncremental(
 						state = "IDLE";
 					}
 				} else if (isListItem(line)) {
-					// Check if list type changed (ordered -> unordered or vice versa)
-					const newListStyle = getListStyle(line);
-					if (newListStyle && newListStyle !== listStyle) {
-						// List type changed - close current list and start new one
-						blocks.push(
-							createBlock("list", currentRaw, {
-								complete: true,
-								listStyle,
-							}),
-						);
-						currentRaw = line;
-						listStyle = newListStyle;
-					} else {
+					if (isIndentedLine(line)) {
+						// Nested list item — keep in current block
 						currentRaw += `\n${line}`;
+					} else {
+						// Root-level: check if list type changed
+						const newListStyle = getListStyle(line);
+						if (newListStyle && newListStyle !== listStyle) {
+							// List type changed - close current list and start new one
+							blocks.push(
+								createBlock("list", currentRaw, {
+									complete: true,
+									listStyle,
+								}),
+							);
+							currentRaw = line;
+							listStyle = newListStyle;
+						} else {
+							currentRaw += `\n${line}`;
+						}
 					}
 				} else if (isContinuation(line) || isIndentedContinuation(line)) {
 					currentRaw += `\n${line}`;
@@ -458,6 +463,11 @@ export function parseIncremental(
 /** Split content into lines, preserving trailing empty line awareness */
 function splitLines(content: string): string[] {
 	return content.split("\n");
+}
+
+/** Check if a line is indented (nested content) */
+function isIndentedLine(line: string): boolean {
+	return /^\s{2,}/.test(line) || /^\t/.test(line);
 }
 
 /** Check if a line is a list item */
