@@ -1,8 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
@@ -11,8 +9,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build and Test
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      core: ${{ steps.filter.outputs.core }}
+      markdown: ${{ steps.filter.outputs.markdown }}
+      react: ${{ steps.filter.outputs.react }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            core:
+              - 'packages/core/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'tsconfig.json'
+              - 'biome.json'
+              - '.moon/**'
+            markdown:
+              - 'packages/markdown/**'
+              - 'packages/core/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'tsconfig.json'
+              - 'biome.json'
+              - '.moon/**'
+            react:
+              - 'packages/react/**'
+              - 'packages/core/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'tsconfig.json'
+              - 'biome.json'
+              - '.moon/**'
+
+  ci-core:
+    name: "CI: Core"
+    needs: changes
+    if: needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -49,20 +89,131 @@ jobs:
       - name: Setup Moon
         uses: moonrepo/setup-moon-action@v1
 
-      - name: Run checks
-        run: moon run :check
+      - name: Check
+        run: moon run core:check
 
       - name: Typecheck
-        run: moon run :typecheck
+        run: moon run core:typecheck
 
-      - name: Build packages
-        run: moon run :build
+      - name: Build
+        run: moon run core:build
 
-      - name: Test packages
+  ci-markdown:
+    name: "CI: Markdown"
+    needs: changes
+    if: needs.changes.outputs.markdown == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Get pnpm store directory
+        shell: bash
         run: |
-          if pnpm moon run markdown:test; then
-            echo "Tests completed"
-          else
-            echo "No tests configured or tests failed"
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Moon
+        uses: moonrepo/setup-moon-action@v1
+
+      - name: Check
+        run: moon run markdown:check
+
+      - name: Typecheck
+        run: moon run markdown:typecheck
+
+      - name: Build
+        run: moon run markdown:build
+
+      - name: Test
+        run: moon run markdown:test
+
+  ci-react:
+    name: "CI: React"
+    needs: changes
+    if: needs.changes.outputs.react == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Moon
+        uses: moonrepo/setup-moon-action@v1
+
+      - name: Check
+        run: moon run react:check
+
+      - name: Typecheck
+        run: moon run react:typecheck
+
+      - name: Build
+        run: moon run react:build
+
+      - name: Test
+        run: moon run react:test
+
+  ci-status:
+    name: CI Status
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [ci-core, ci-markdown, ci-react]
+    steps:
+      - name: Check job results
+        run: |
+          if [[ "${{ needs.ci-core.result }}" == "failure" || \
+                "${{ needs.ci-markdown.result }}" == "failure" || \
+                "${{ needs.ci-react.result }}" == "failure" ]]; then
+            echo "One or more CI jobs failed"
+            exit 1
           fi
-        continue-on-error: true
+          echo "All CI jobs passed or were skipped"
