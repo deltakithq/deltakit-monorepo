@@ -11,6 +11,7 @@
 		"types",
 		"sse-events",
 		"parse-sse-stream",
-		"from-openai-agents"
+		"from-openai-agents",
+		"from-agno-agents"
 	]
 }
