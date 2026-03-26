@@ -1,5 +1,11 @@
 # @deltakit/markdown
 
+## 0.2.9
+
+### Patch Changes
+
+- test: bump all packages to verify independent publishing
+
 ## 0.2.8
 
 ### Patch Changes
