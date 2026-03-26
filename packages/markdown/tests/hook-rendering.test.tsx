@@ -158,6 +158,19 @@ describe("block rendering", () => {
 		});
 	});
 
+	describe("ordered list with nested unordered items", () => {
+		it("renders exactly 4 root li elements for 4 numbered items with nested bullets", () => {
+			const content =
+				"1. Item A\n   - detail\n2. Item B\n3. Item C\n   - detail\n4. Item D\n\n";
+			const { container } = renderMarkdown(content);
+			expect(container.querySelector("ol")).toBeTruthy();
+			// Should have exactly 4 top-level <li> (direct children of <ol>)
+			const ol = container.querySelector("ol")!;
+			const topLevelItems = ol.querySelectorAll(":scope > li");
+			expect(topLevelItems.length).toBe(4);
+		});
+	});
+
 	describe("table", () => {
 		it("renders table/thead/tbody/tr/td structure", () => {
 			const { container } = renderMarkdown(

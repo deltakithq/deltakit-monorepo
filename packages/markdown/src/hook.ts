@@ -245,15 +245,13 @@ function parseListItems(raw: string): Array<{ content: string }> {
 	let currentItem: { lines: string[] } | null = null;
 
 	for (const line of lines) {
-		if (/^\s*(?:[-*+]\s+|\d+\.(?!\d)\s+)/.test(line)) {
+		if (/^(?:[-*+]\s+|\d+\.(?!\d)\s+)/.test(line)) {
 			if (currentItem) {
 				items.push(currentItem);
 			}
 
 			currentItem = {
-				lines: [
-					line.replace(/^\s*[-*+]\s+/, "").replace(/^\s*\d+\.(?!\d)\s+/, ""),
-				],
+				lines: [line.replace(/^[-*+]\s+/, "").replace(/^\d+\.(?!\d)\s+/, "")],
 			};
 			continue;
 		}

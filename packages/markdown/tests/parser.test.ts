@@ -448,6 +448,52 @@ describe("parseIncremental", () => {
 		});
 	});
 
+	describe("nested list items with mixed styles", () => {
+		it("should keep ordered list with nested unordered items as a single block", () => {
+			const content = "1. First\n   - sub item\n2. Second\n\n";
+			const result = parseIncremental(content);
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("list");
+			expect(result.blocks[0].listStyle).toBe("ordered");
+			expect(result.blocks[0].complete).toBe(true);
+		});
+
+		it("should keep unordered list with nested ordered items as a single block", () => {
+			const content = "- First\n  1. sub item\n- Second\n\n";
+			const result = parseIncremental(content);
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("list");
+			expect(result.blocks[0].listStyle).toBe("unordered");
+			expect(result.blocks[0].complete).toBe(true);
+		});
+
+		it("should handle multi-level nesting as a single block", () => {
+			const content = "1. First\n   - sub\n     - deep sub\n2. Second\n\n";
+			const result = parseIncremental(content);
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("list");
+			expect(result.blocks[0].listStyle).toBe("ordered");
+		});
+
+		it("should parse exact bug report input as a single ordered block", () => {
+			const content =
+				"1. Item A\n   - detail\n2. Item B\n3. Item C\n   - detail\n4. Item D\n\n";
+			const result = parseIncremental(content);
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("list");
+			expect(result.blocks[0].listStyle).toBe("ordered");
+			expect(result.blocks[0].complete).toBe(true);
+		});
+
+		it("should still split root-level style changes into separate blocks", () => {
+			const content = "1. Ordered\n- Unordered\n\n";
+			const result = parseIncremental(content);
+			expect(result.blocks).toHaveLength(2);
+			expect(result.blocks[0].listStyle).toBe("ordered");
+			expect(result.blocks[1].listStyle).toBe("unordered");
+		});
+	});
+
 	describe("version number handling", () => {
 		it("should not treat version numbers as ordered list items", () => {
 			const result = parseIncremental("Node.js v25.0 and npm 11.8.0");
