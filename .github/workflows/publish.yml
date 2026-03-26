@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 concurrency:
   group: publish-main
@@ -12,7 +13,7 @@ concurrency:
 jobs:
   detect:
     name: Detect unpublished versions
-    if: "${{ github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, 'chore(release): version packages') }}"
+    if: "${{ github.event_name == 'workflow_dispatch' || (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, 'chore(release): version packages')) }}"
     runs-on: ubuntu-latest
     outputs:
       core: ${{ steps.check.outputs.core }}
