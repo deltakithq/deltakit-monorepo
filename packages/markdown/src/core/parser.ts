@@ -540,7 +540,7 @@ function isLazyContinuation(line: string): boolean {
  * Matches:
  *   "#", "##", "###" etc. (heading without space/content)
  *   "-", "*", "+" (list marker without space)
- *   "1", "1.", "12", "12." etc. (ordered list partial)
+ *   "1", "1.", "12." etc. (ordered list partial)
  *   "> " (blockquote marker-only, no content)
  */
 function isPartialBlockMarker(line: string): boolean {
@@ -549,8 +549,9 @@ function isPartialBlockMarker(line: string): boolean {
 	if (/^#{1,6}$/.test(trimmed)) return true;
 	// Partial unordered list: just the marker char, no space
 	if (/^[-*+]$/.test(trimmed)) return true;
-	// Partial ordered list: digits, or digits+dot, no space
-	if (/^\d+\.?$/.test(trimmed)) return true;
+	// Partial ordered list: a lone digit, or digits followed by dot,
+	// but not multi-digit plain numbers like "5465"
+	if (/^\d$/.test(trimmed) || /^\d+\.$/.test(trimmed)) return true;
 	return false;
 }
 
@@ -564,14 +565,14 @@ function isPartialBlockMarker(line: string): boolean {
 function isPartialListMarker(line: string): boolean {
 	const trimmed = line.trimStart();
 	if (/^[-*+]$/.test(trimmed)) return true;
-	if (/^\d+\.?$/.test(trimmed)) return true;
+	if (/^\d$/.test(trimmed) || /^\d+\.$/.test(trimmed)) return true;
 	return false;
 }
 
 /**
  * Check if the last line of a list block is an empty or partial list item marker.
  * Empty: "- " or "1. " (marker with space but no content)
- * Partial: "-" or "1." or "1" (marker not yet fully formed)
+ * Partial: "-" or "1" or "1." (marker not yet fully formed)
  *
  * If so, return the safe prefix (without the trailing marker) and the trailing part.
  * Returns null if the last item has content.
