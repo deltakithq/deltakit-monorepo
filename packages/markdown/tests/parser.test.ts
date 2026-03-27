@@ -34,6 +34,15 @@ describe("parseIncremental", () => {
 			expect(result.blocks[0].raw).toBe("Hello world");
 		});
 
+		it("should parse a bare number as a paragraph instead of buffering it", () => {
+			const result = parseIncremental("5465");
+			expect(result.buffered).toBe("");
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("paragraph");
+			expect(result.blocks[0].raw).toBe("5465");
+			expect(result.blocks[0].complete).toBe(false);
+		});
+
 		it("should parse a code block", () => {
 			const result = parseIncremental("```js\nconsole.log('hi')\n```\n\n");
 			expect(result.blocks).toHaveLength(1);
@@ -228,6 +237,18 @@ describe("parseIncremental", () => {
 			// Should not buffer since it exceeds 200 chars
 			expect(result.blocks).toHaveLength(1);
 			expect(result.buffered).toBe("");
+		});
+
+		it("should not treat a bare number after a list as a partial list marker", () => {
+			const result = parseIncremental("- Item 1\n5465", {
+				bufferIncomplete: true,
+			});
+			expect(result.buffered).toBe("");
+			expect(result.blocks).toHaveLength(2);
+			expect(result.blocks[0].type).toBe("list");
+			expect(result.blocks[0].complete).toBe(true);
+			expect(result.blocks[1].type).toBe("paragraph");
+			expect(result.blocks[1].raw).toBe("5465");
 		});
 	});
 
