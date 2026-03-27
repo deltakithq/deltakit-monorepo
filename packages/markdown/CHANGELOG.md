@@ -1,5 +1,11 @@
 # @deltakit/markdown
 
+## 0.2.11
+
+### Patch Changes
+
+- Fix bare multi-digit numbers like `5465` so they render as paragraphs during streaming instead of being buffered as incomplete ordered list markers.
+
 ## 0.2.9
 
 ### Patch Changes
