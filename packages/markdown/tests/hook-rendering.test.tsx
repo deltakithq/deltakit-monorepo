@@ -169,6 +169,28 @@ describe("block rendering", () => {
 			const topLevelItems = ol.querySelectorAll(":scope > li");
 			expect(topLevelItems.length).toBe(4);
 		});
+
+		it("keeps a trailing paragraph outside a loose ordered list", () => {
+			const content =
+				"The user wants me to analyze the codebase and check if the README.md is correct. This requires:\n\n1. Understanding the codebase structure and what it does\n\n2. Reading the README.md to see what it claims\n\n3. Comparing the README claims against the actual codebase\n\nThis is an exploration task, so I should delegate to ExploreAgent to understand the codebase comprehensively. Let me do that.\n";
+			const { container } = renderMarkdown(content);
+			const ol = container.querySelector("ol");
+			expect(ol).toBeTruthy();
+			const topLevelItems = ol!.querySelectorAll(":scope > li");
+			expect(topLevelItems.length).toBe(3);
+			expect(topLevelItems[2]?.textContent).toContain(
+				"Comparing the README claims against the actual codebase",
+			);
+			expect(topLevelItems[2]?.textContent).not.toContain(
+				"This is an exploration task",
+			);
+			const paragraphs = Array.from(container.querySelectorAll("p")).map(
+				(node) => node.textContent?.trim(),
+			);
+			expect(paragraphs).toContain(
+				"This is an exploration task, so I should delegate to ExploreAgent to understand the codebase comprehensively. Let me do that.",
+			);
+		});
 	});
 
 	describe("table", () => {

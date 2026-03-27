@@ -135,7 +135,7 @@ export function renderBlock(
 		case "table":
 			return renderTable(block, components);
 		case "hr":
-			return createElement("div", { key: block.id }, components.hr());
+			return components.hr();
 		default:
 			return renderParagraph(block, components);
 	}
@@ -151,11 +151,7 @@ function renderHeading(
 	const HeadingComponent = components[
 		`h${level}` as keyof ComponentOverrides
 	] as (props: { children: ReactNode }) => ReactNode;
-	return createElement(
-		"div",
-		{ key: block.id },
-		HeadingComponent({ children: inlineNodes }),
-	);
+	return HeadingComponent({ children: inlineNodes });
 }
 
 function renderParagraph(
@@ -163,11 +159,7 @@ function renderParagraph(
 	components: Required<ComponentOverrides>,
 ): ReactNode {
 	const inlineNodes = renderInlineTokens(parseInline(block.raw), components);
-	return createElement(
-		"div",
-		{ key: block.id },
-		components.p({ children: inlineNodes }),
-	);
+	return components.p({ children: inlineNodes });
 }
 
 function renderCodeBlock(
@@ -175,15 +167,11 @@ function renderCodeBlock(
 	components: Required<ComponentOverrides>,
 ): ReactNode {
 	const content = extractCodeContent(block.raw);
-	return createElement(
-		"div",
-		{ key: block.id },
-		components.code({
-			language: block.language,
-			children: content,
-			inline: false,
-		}),
-	);
+	return components.code({
+		language: block.language,
+		children: content,
+		inline: false,
+	});
 }
 
 function renderBlockquote(
@@ -192,11 +180,7 @@ function renderBlockquote(
 ): ReactNode {
 	const content = extractBlockquoteContent(block.raw);
 	const inlineNodes = renderInlineTokens(parseInline(content), components);
-	return createElement(
-		"div",
-		{ key: block.id },
-		components.blockquote({ children: inlineNodes }),
-	);
+	return components.blockquote({ children: inlineNodes });
 }
 
 function renderList(
@@ -232,11 +216,7 @@ function renderList(
 
 	const ListComponent =
 		block.listStyle === "ordered" ? components.ol : components.ul;
-	return createElement(
-		"div",
-		{ key: block.id },
-		ListComponent({ children: items }),
-	);
+	return ListComponent({ children: items });
 }
 
 function parseListItems(raw: string): Array<{ content: string }> {
@@ -312,19 +292,11 @@ function renderTable(
 	const separatorIndex = lines.findIndex((line) => isTableSeparator(line));
 
 	if (separatorIndex === -1) {
-		return createElement(
-			"div",
-			{ key: block.id },
-			components.p({ children: block.raw }),
-		);
+		return components.p({ children: block.raw });
 	}
 
 	if (lines.length === 0) {
-		return createElement(
-			"div",
-			{ key: block.id },
-			components.table({ children: null }),
-		);
+		return components.table({ children: null });
 	}
 
 	const rows: ReactNode[] = [];
@@ -386,11 +358,7 @@ function renderTable(
 		);
 	}
 
-	return createElement(
-		"div",
-		{ key: block.id },
-		components.table({ children: tableChildren }),
-	);
+	return components.table({ children: tableChildren });
 }
 
 type ImageLoadState = "loading" | "ready" | "error";
