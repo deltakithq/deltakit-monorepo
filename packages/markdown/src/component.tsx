@@ -21,11 +21,6 @@ import { mergeComponents } from "./renderers/defaults.js";
  * GPU-accelerated with will-change hint.
  */
 const STREAMING_STYLES = `
-  .streaming-markdown-block {
-    transition: opacity 150ms ease-out;
-    will-change: opacity;
-  }
-
   .streaming-markdown-image-skeleton {
     display: inline-block;
     width: min(18rem, 100%);
@@ -111,18 +106,7 @@ const BlockRenderer = memo(
 		block: Block;
 		components: Required<ComponentOverrides>;
 	}): ReactNode {
-		const rendered = renderBlock(block, components);
-
-		// Apply opacity transition wrapper only to incomplete (streaming) blocks
-		if (!block.complete) {
-			return createElement(
-				"div",
-				{ className: "streaming-markdown-block" },
-				rendered,
-			);
-		}
-
-		return rendered;
+		return renderBlock(block, components);
 	},
 	(prev, next) => {
 		// If the previous block was complete, skip rerender

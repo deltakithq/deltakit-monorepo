@@ -33,10 +33,10 @@ const { ref } = useAutoScroll([messages]);
 
 **Type:** `ScrollBehavior` — Default: `"smooth"`
 
-The scroll behavior passed to `Element.scrollTo()`. Use `"smooth"` (default) for animated scrolling, or `"instant"` to snap without animation.
+The scroll behavior used by the `scrollToBottom()` function. During streaming auto-scroll, the hook always uses instant `scrollTop` updates to avoid flicker. Use `"smooth"` (default) for an animated scroll-to-bottom, or `"instant"` to snap without animation.
 
 ```tsx
-const { ref } = useAutoScroll([messages], { behavior: "instant" });
+const { ref, scrollToBottom } = useAutoScroll([messages], { behavior: "smooth" });
 ```
 
 ### `options.enabled`
