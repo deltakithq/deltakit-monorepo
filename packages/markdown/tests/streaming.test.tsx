@@ -352,6 +352,35 @@ describe("streaming simulation", () => {
 			});
 		});
 
+		it("should hold back an incomplete trailing list item until newline", async () => {
+			// Streaming: second item is still being typed
+			const partial = render(
+				createElement(StreamingMarkdown, {
+					content: "- Item 1\n- Item 2 partial",
+					batchMs: 0,
+				}),
+			);
+			const partialList = partial.container.querySelector("ul");
+			expect(partialList).toBeTruthy();
+			// Only the first (settled) item should render
+			expect(partialList?.textContent).toContain("Item 1");
+			expect(partialList?.textContent).not.toContain("Item 2");
+
+			// Once newline arrives, both items render
+			const completed = render(
+				createElement(StreamingMarkdown, {
+					content: "- Item 1\n- Item 2 complete\n",
+					batchMs: 0,
+				}),
+			);
+
+			await waitFor(() => {
+				const completedList = completed.container.querySelector("ul");
+				expect(completedList?.textContent).toContain("Item 1");
+				expect(completedList?.textContent).toContain("Item 2 complete");
+			});
+		});
+
 		it("should render image skeleton first, then reveal image once loaded", async () => {
 			const restore = installMockImage(() => "load");
 			try {
