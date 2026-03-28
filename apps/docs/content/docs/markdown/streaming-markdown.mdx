@@ -82,8 +82,25 @@ The component renders a wrapper `<div>` that accepts a `className` prop:
 
 This works well with the [Tailwind Typography](https://tailwindcss.com/docs/typography-plugin) plugin for styled prose output.
 
+## Static Rendering for Complete Messages
+
+For messages that are already complete (historical transcript), use the `Markdown` component instead. It skips all streaming overhead:
+
+```tsx
+import { Markdown, StreamingMarkdown } from "@deltakit/markdown";
+
+// Active streaming message
+<StreamingMarkdown content={streamingText} />
+
+// Historical messages
+<Markdown content={completedText} />
+```
+
+See the [Markdown API reference](/docs/markdown/markdown-api) for details.
+
 ## Notes
 
 - The component parses the full `content` string on every render. This is fast (the parser handles 300k+ ops/sec on realistic content) but means it's not truly incremental at the parse level — only at the render level.
 - Block IDs are assigned sequentially starting from 0. They reset on each parse call, so the same content always produces the same block structure.
 - `batchMs` is implemented with `setTimeout`. If React 18+ concurrent features are available, the component still uses `setTimeout` for predictable timing behavior.
+- Streaming CSS styles (opacity transitions, image skeleton animations) are injected once via a ref-counted singleton `<style>` tag in `document.head`, not per component instance. This keeps style recalculation cost constant regardless of how many `StreamingMarkdown` instances are mounted.

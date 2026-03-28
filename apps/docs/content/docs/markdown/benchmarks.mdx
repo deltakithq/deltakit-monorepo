@@ -34,7 +34,7 @@ Both libraries render the same markdown content via `renderToStaticMarkup`. Meas
 
 These numbers are real, but context matters:
 
-- **@deltakit/markdown produces simpler HTML.** Our renderer wraps blocks in extra `<div>` and `<span>` elements and doesn't nest `<p>` inside `<blockquote>`. Less DOM work naturally means faster rendering. This is not a same-output comparison.
+- **@deltakit/markdown produces clean semantic HTML.** Blocks render directly as semantic elements (`<h1>`, `<p>`, `<pre>`, etc.) without wrapper `<div>` or `<span>` elements. Less DOM work naturally means faster rendering. This is not a same-output comparison.
 - **react-markdown runs a full CommonMark pipeline.** It parses via micromark, transforms through the remark/rehype AST pipeline, and produces spec-compliant HTML. We run a simplified regex-based parser. Being faster while doing less work is expected, not remarkable.
 - **The streaming simulation uses `renderToStaticMarkup`.** This does NOT demonstrate our `React.memo` block memoization advantage. In a real browser with React reconciliation, completed blocks would be skipped entirely — but that's difficult to benchmark accurately in a synthetic test.
 
@@ -54,6 +54,29 @@ We also benchmark our parser (`parseIncremental`) against [micromark](https://gi
 - **Different feature coverage.** micromark implements the full CommonMark specification. Our parser implements a subset. Fewer features means fewer code paths means faster execution.
 
 The parse-only numbers show our parser is fast, but the magnitude of the speedup is partly because we're solving a simpler problem.
+
+## Performance at Scale
+
+`@deltakit/markdown` is optimized for long chat transcripts with many rendered messages. Key performance characteristics:
+
+| Scenario | Threshold |
+|----------|-----------|
+| Parse ~15KB document (mixed blocks) | < 50ms |
+| Parse 50 messages in sequence | < 2s |
+| Incremental stream parse (per 100-char step) | < 10ms |
+| 200-item list parse | < 30ms |
+| 50KB+ document parse | < 100ms |
+
+### DOM Efficiency
+
+The renderer produces clean semantic HTML with no wrapper bloat:
+
+- **No wrapper `<div>` around blocks** — headings, paragraphs, code, lists render as direct semantic elements
+- **No wrapper `<span>` around inline tokens** — text, bold, italic, code render without extra span wrappers
+- **Single shared `<style>` tag** — streaming CSS is injected once via a ref-counted singleton, not per component instance
+- **Static `Markdown` component** — for completed messages, skips all streaming overhead (batching, debouncing, opacity transitions)
+
+These optimizations keep the browser layout/paint/style-recalculation cost low even with hundreds of rendered messages.
 
 ## Feature Comparison
 
@@ -99,8 +122,10 @@ This is where react-markdown clearly has the advantage. It's a mature, battle-te
 | Incomplete syntax buffering | Raw `**`, `` ` ``, `[` never visible during streaming |
 | Code block skeleton | Pending code blocks render as empty `<pre>` shells, not paragraphs |
 | Render batching (`batchMs`) | Configurable DOM update frequency (8ms, 16ms, 32ms) |
+| Static `Markdown` component | Lightweight renderer for completed messages — no batching, debouncing, or streaming styles |
 | Headless hook | `useStreamingMarkdown` for custom rendering |
 | Framework-agnostic parser | `parseIncremental` from `@deltakit/markdown/core` |
+| Singleton style injection | One shared `<style>` tag regardless of instance count |
 | Zero runtime dependencies | No remark, rehype, unified, micromark, vfile |
 
 ## When to Use Which
