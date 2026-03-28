@@ -212,7 +212,7 @@ describe("useAutoScroll", () => {
 		advanceFrame();
 
 		expect(el.scrollTop).toBe(1300);
-		expect(scrollTo).not.toHaveBeenCalled();
+		expect(scrollTo).toHaveBeenCalledWith({ top: 1300, behavior: "smooth" });
 		expect(onRender.mock.lastCall?.[0].isAtBottom).toBe(true);
 
 		vi.useRealTimers();
@@ -361,7 +361,7 @@ describe("useAutoScroll", () => {
 		advanceFrame();
 
 		expect(el.scrollTop).toBe(1400);
-		expect(scrollTo).not.toHaveBeenCalled();
+		expect(scrollTo).toHaveBeenCalledWith({ top: 1400, behavior: "smooth" });
 		expect(onRender.mock.lastCall?.[0].isAtBottom).toBe(true);
 
 		vi.useRealTimers();

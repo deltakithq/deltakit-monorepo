@@ -1,6 +1,6 @@
 {
 	"name": "@deltakit/react",
-	"version": "0.2.5",
+	"version": "0.2.6",
 	"description": "React hooks for streaming AI conversations with real-time updates",
 	"homepage": "https://deltakit.dev",
 	"type": "module",
