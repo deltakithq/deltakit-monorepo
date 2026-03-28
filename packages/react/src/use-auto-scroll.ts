@@ -16,12 +16,14 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 	options?: UseAutoScrollOptions,
 ): UseAutoScrollReturn<T> {
 	const {
-		behavior = "instant",
+		behavior = "smooth",
 		enabled = true,
 		threshold = DEFAULT_THRESHOLD,
 	} = options ?? {};
 
 	const ref = useRef<T | null>(null);
+	const behaviorRef = useRef(behavior);
+	behaviorRef.current = behavior;
 	const isAtBottomRef = useRef(true);
 	const [isAtBottom, setIsAtBottom] = useState(true);
 
@@ -57,7 +59,7 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 
 				// Keep the viewport pinned during streaming without restarting a
 				// smooth scroll animation on every DOM mutation.
-				el.scrollTop = nextHeight;
+				el.scrollTo({ top: nextHeight, behavior: behaviorRef.current });
 			} else {
 				pendingVerificationFramesRef.current = Math.max(
 					pendingVerificationFramesRef.current - 1,

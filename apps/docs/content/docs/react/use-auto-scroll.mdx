@@ -31,12 +31,12 @@ const { ref } = useAutoScroll([messages]);
 
 ### `options.behavior`
 
-**Type:** `ScrollBehavior` — Default: `"instant"`
+**Type:** `ScrollBehavior` — Default: `"smooth"`
 
-The scroll behavior passed to `Element.scrollTo()`. Use `"instant"` (default) for streaming chat to avoid animation lag, or `"smooth"` for animated scrolling.
+The scroll behavior passed to `Element.scrollTo()`. Use `"smooth"` (default) for animated scrolling, or `"instant"` to snap without animation.
 
 ```tsx
-const { ref } = useAutoScroll([messages], { behavior: "smooth" });
+const { ref } = useAutoScroll([messages], { behavior: "instant" });
 ```
 
 ### `options.enabled`
