@@ -79,10 +79,10 @@ const { ref } = useAutoScroll([messages], { enabled: false });
 
 ## Smooth Scrolling
 
-By default the hook scrolls smoothly. If you need instant snapping (e.g. to avoid animation lag during very fast streaming), pass `behavior: "instant"`:
+During streaming, the hook keeps the viewport pinned using instant `scrollTop` updates to avoid flicker from overlapping smooth-scroll animations. The `behavior` option controls only the explicit `scrollToBottom()` call — use `"smooth"` (default) for an animated jump back, or `"instant"` to snap immediately:
 
 ```tsx
-const { ref } = useAutoScroll([messages], { behavior: "instant" });
+const { ref, scrollToBottom } = useAutoScroll([messages], { behavior: "smooth" });
 ```
 
 ## Recipes

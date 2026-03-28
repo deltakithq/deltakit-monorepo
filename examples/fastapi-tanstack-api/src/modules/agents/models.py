@@ -5,5 +5,5 @@ from src.core.settings import settings
 llm_model = LitellmModel(
     base_url=settings.OPENROUTER_BASE_URL,
     api_key=settings.OPENROUTER_API_KEY,
-    model="openrouter/moonshotai/kimi-k2.5",
+    model="openrouter/xiaomi/mimo-v2-flash",
 )

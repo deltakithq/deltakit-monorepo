@@ -284,7 +284,7 @@ export interface UseStreamChatReturn<
 // ---------------------------------------------------------------------------
 
 export interface UseAutoScrollOptions {
-	/** Scroll behavior for `scrollTo()` and `scrollToBottom()` calls. Default: `"smooth"`. */
+	/** Scroll behavior for explicit `scrollToBottom()` calls. Streaming auto-scroll always uses instant positioning to avoid flicker. Default: `"smooth"`. */
 	behavior?: ScrollBehavior;
 
 	/** Whether auto-scroll is enabled. Default: `true`. */
