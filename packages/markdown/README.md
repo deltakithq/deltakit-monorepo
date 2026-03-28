@@ -16,7 +16,20 @@ Requires React 18+.
 import { StreamingMarkdown } from "@deltakit/markdown";
 
 function AssistantMessage({ content }: { content: string }) {
-  return <StreamingMarkdown content={content} isStreaming={true} />;
+  return <StreamingMarkdown content={content} />;
+}
+```
+
+For completed/historical messages, use the lighter `Markdown` component:
+
+```tsx
+import { Markdown, StreamingMarkdown } from "@deltakit/markdown";
+
+function Message({ content, isStreaming }: { content: string; isStreaming: boolean }) {
+  if (isStreaming) {
+    return <StreamingMarkdown content={content} />;
+  }
+  return <Markdown content={content} />;
 }
 ```
 
@@ -24,7 +37,7 @@ With `useStreamChat` from `@deltakit/react`:
 
 ```tsx
 import { useStreamChat } from "@deltakit/react";
-import { StreamingMarkdown } from "@deltakit/markdown";
+import { Markdown, StreamingMarkdown } from "@deltakit/markdown";
 
 function Chat() {
   const { messages, isLoading, sendMessage } = useStreamChat({
@@ -37,13 +50,14 @@ function Chat() {
         <div key={msg.id}>
           {msg.parts
             .filter((p) => p.type === "text")
-            .map((p, i) => (
-              <StreamingMarkdown
-                key={i}
-                content={p.text}
-                isStreaming={isLoading}
-              />
-            ))}
+            .map((p, i) => {
+              const isActive = isLoading && msg.role === "assistant";
+              return isActive ? (
+                <StreamingMarkdown key={i} content={p.text} />
+              ) : (
+                <Markdown key={i} content={p.text} />
+              );
+            })}
         </div>
       ))}
     </div>
@@ -55,49 +69,53 @@ function Chat() {
 
 ### `<StreamingMarkdown />`
 
-The main component. Pass markdown text and a streaming flag.
+The main component for rendering actively streaming markdown. Completed blocks are frozen via `React.memo` and never re-render.
 
 ```tsx
 <StreamingMarkdown
-  content={text}           // Markdown string
-  isStreaming={true}        // true while content is arriving
-  batchMs={8}              // Debounce interval in ms (default: 0)
+  content={text}           // Markdown string (grows as tokens arrive)
+  batchMs={16}             // Debounce interval in ms (default: 16)
+  bufferIncomplete={true}  // Hold back unclosed syntax (default: true)
+  className="prose"        // CSS class on wrapper div
   components={{            // Override any rendered element
-    h1: ({ children }) => <h1 className="title">{children}</h1>,
-    code_block: ({ language, code }) => (
-      <SyntaxHighlighter language={language}>{code}</SyntaxHighlighter>
+    code: ({ language, children, inline }) => (
+      inline ? <code>{children}</code> : <pre><code>{children}</code></pre>
     ),
   }}
 />
 ```
 
-Completed blocks are memoized with `React.memo` -- they never re-render as new content streams in.
+### `<Markdown />`
+
+Lightweight component for completed/historical messages. No batching, debouncing, or streaming styles.
+
+```tsx
+<Markdown
+  content={text}           // Complete markdown string
+  className="prose"        // CSS class on wrapper div
+  components={{...}}       // Same component overrides as StreamingMarkdown
+/>
+```
 
 ### `useStreamingMarkdown(options)`
 
-The underlying hook, for full control over rendering.
+Headless hook for full control over rendering.
 
 ```tsx
 import { useStreamingMarkdown } from "@deltakit/markdown";
 
-function CustomRenderer({ content, isStreaming }) {
-  const { blocks, buffered } = useStreamingMarkdown({
+function CustomRenderer({ content }: { content: string }) {
+  const { nodes, isComplete } = useStreamingMarkdown({
     content,
-    isStreaming,
-    batchMs: 8,
+    batchMs: 16,
+    bufferIncomplete: true,
   });
 
-  return (
-    <div>
-      {blocks.map((block, i) => (
-        <BlockRenderer key={i} block={block} />
-      ))}
-    </div>
-  );
+  return <div>{nodes}</div>;
 }
 ```
 
-### `parseIncremental(content)` (framework-agnostic)
+### `parseIncremental(content, options?)` (framework-agnostic)
 
 The core parser, importable without React:
 
@@ -105,9 +123,8 @@ The core parser, importable without React:
 import { parseIncremental } from "@deltakit/markdown/core";
 
 const result = parseIncremental("# Hello\n\nSome **bold** text");
-// result.blocks  -- completed blocks
-// result.active  -- block still being typed
-// result.buffer  -- incomplete syntax held back
+// result.blocks   -- array of parsed Block objects
+// result.buffered -- incomplete syntax held back from rendering
 ```
 
 ## Supported Syntax
@@ -120,22 +137,32 @@ const result = parseIncremental("# Hello\n\nSome **bold** text");
 | `` `code` `` | inline code |
 | `~~strike~~` | strikethrough |
 | `[text](url)` | link |
-| `![alt](src)` | image |
-| `<url>` | autolink |
+| `![alt](src)` | image (with loading skeleton) |
+| `https://...` | autolink |
 | `` ``` `` fenced blocks | code block |
 | `- item` / `* item` | unordered list |
 | `1. item` | ordered list |
 | `> quote` | blockquote |
+| `\| table \|` | table (GFM-style) |
 | `---` | horizontal rule |
 | blank line | paragraph break |
 
 ## Streaming Behavior
 
-- **Completed blocks** render immediately and are memoized
+- **Completed blocks** render immediately and are frozen via `React.memo`
 - **Active block** re-renders as new characters arrive
-- **Code blocks** show as empty skeleton `<pre><code>` shells until the closing fence arrives
-- **Incomplete syntax** (e.g. unclosed `**`) is buffered and hidden until resolved
-- **batchMs** debounces updates to reduce render frequency during fast streams
+- **Code blocks** show as empty `<pre><code>` shells until the closing fence arrives
+- **Incomplete syntax** (e.g. unclosed `**`, `[`) is buffered and hidden until resolved
+- **List items** are held back during streaming until the next item or newline confirms they're complete
+- **Table rows** are held back until the row terminator arrives
+- **batchMs** debounces DOM updates to control render frequency (default: 16ms / ~60fps)
+
+## Performance
+
+- **Singleton style injection** -- one shared `<style>` tag regardless of how many instances are mounted
+- **No wrapper DOM nodes** -- blocks render as semantic elements (`<h1>`, `<p>`, `<pre>`) without extra `<div>` or `<span>` wrappers
+- **Optimized list rendering** -- simple list items skip full block parsing; nested content uses `resetIds: false` to avoid ID collisions
+- **Static `Markdown` component** -- skips all streaming overhead for completed messages
 
 ## Bundle Size
 
