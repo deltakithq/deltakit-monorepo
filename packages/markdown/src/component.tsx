@@ -73,6 +73,31 @@ const STREAMING_STYLES = `
   }
 `;
 
+// ── Singleton style injection ──
+// Instead of injecting a <style> tag per component instance,
+// we inject one shared <style> into document.head and ref-count it.
+
+let styleRefCount = 0;
+let styleElement: HTMLStyleElement | null = null;
+
+function mountStyles(): void {
+	styleRefCount++;
+	if (styleRefCount === 1 && typeof document !== "undefined") {
+		styleElement = document.createElement("style");
+		styleElement.setAttribute("data-deltakit-markdown", "");
+		styleElement.textContent = STREAMING_STYLES;
+		document.head.appendChild(styleElement);
+	}
+}
+
+function unmountStyles(): void {
+	styleRefCount--;
+	if (styleRefCount === 0 && styleElement) {
+		styleElement.remove();
+		styleElement = null;
+	}
+}
+
 /**
  * BlockRenderer — memoized block component.
  * When block.complete is true, this component never rerenders.
@@ -134,6 +159,12 @@ export function StreamingMarkdown({
 }: StreamingMarkdownProps): ReactNode {
 	const merged = useMemo(() => mergeComponents(components), [components]);
 
+	// Inject shared styles once (ref-counted singleton)
+	useEffect(() => {
+		mountStyles();
+		return unmountStyles;
+	}, []);
+
 	// Batching: debounce content updates
 	const [renderContent, setRenderContent] = useState(content);
 	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -168,9 +199,6 @@ export function StreamingMarkdown({
 	return createElement(
 		"div",
 		{ className },
-		createElement("style", {
-			dangerouslySetInnerHTML: { __html: STREAMING_STYLES },
-		}),
 		parsed.blocks.map((block) =>
 			createElement(BlockRenderer, {
 				key: block.id,
@@ -178,7 +206,5 @@ export function StreamingMarkdown({
 				components: merged,
 			}),
 		),
-		// Buffered content is held back (invisible) during uncertainty.
-		// It will be rendered once the syntax resolves.
 	);
 }

@@ -96,8 +96,34 @@ import { StreamingMarkdown } from "@deltakit/markdown";
 />
 ```
 
+## Use `Markdown` for Historical Messages
+
+For messages that are already complete, use the lighter `Markdown` component to avoid streaming overhead:
+
+```tsx
+import { Markdown, StreamingMarkdown } from "@deltakit/markdown";
+
+{messages.map((msg) => {
+  const isStreaming = msg.id === activeMessageId;
+  return (
+    <div key={msg.id}>
+      {msg.parts
+        .filter((p) => p.type === "text")
+        .map((p, i) =>
+          isStreaming ? (
+            <StreamingMarkdown key={i} content={p.text} />
+          ) : (
+            <Markdown key={i} content={p.text} />
+          )
+        )}
+    </div>
+  );
+})}
+```
+
 ## Next Steps
 
 - [StreamingMarkdown Guide](/docs/markdown/streaming-markdown): How block-level rendering works under the hood
+- [Markdown API](/docs/markdown/markdown-api): Lightweight component for complete content
 - [Custom Components](/docs/markdown/custom-components): Override any element renderer
 - [Buffering](/docs/markdown/buffering): How incomplete syntax is handled during streaming

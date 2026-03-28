@@ -107,7 +107,9 @@ export function useStreamingMarkdown(
 	}, [renderContent, bufferIncomplete]);
 
 	const nodes = useMemo(() => {
-		return result.blocks.map((block) => renderBlock(block, merged));
+		return result.blocks.map((block) =>
+			createElement(Fragment, { key: block.id }, renderBlock(block, merged)),
+		);
 	}, [result.blocks, merged]);
 
 	// Consider streaming complete when content hasn't changed and no buffer
@@ -135,7 +137,7 @@ export function renderBlock(
 		case "table":
 			return renderTable(block, components);
 		case "hr":
-			return createElement("div", { key: block.id }, components.hr());
+			return components.hr();
 		default:
 			return renderParagraph(block, components);
 	}
@@ -151,11 +153,7 @@ function renderHeading(
 	const HeadingComponent = components[
 		`h${level}` as keyof ComponentOverrides
 	] as (props: { children: ReactNode }) => ReactNode;
-	return createElement(
-		"div",
-		{ key: block.id },
-		HeadingComponent({ children: inlineNodes }),
-	);
+	return HeadingComponent({ children: inlineNodes });
 }
 
 function renderParagraph(
@@ -163,11 +161,7 @@ function renderParagraph(
 	components: Required<ComponentOverrides>,
 ): ReactNode {
 	const inlineNodes = renderInlineTokens(parseInline(block.raw), components);
-	return createElement(
-		"div",
-		{ key: block.id },
-		components.p({ children: inlineNodes }),
-	);
+	return components.p({ children: inlineNodes });
 }
 
 function renderCodeBlock(
@@ -175,15 +169,11 @@ function renderCodeBlock(
 	components: Required<ComponentOverrides>,
 ): ReactNode {
 	const content = extractCodeContent(block.raw);
-	return createElement(
-		"div",
-		{ key: block.id },
-		components.code({
-			language: block.language,
-			children: content,
-			inline: false,
-		}),
-	);
+	return components.code({
+		language: block.language,
+		children: content,
+		inline: false,
+	});
 }
 
 function renderBlockquote(
@@ -192,11 +182,17 @@ function renderBlockquote(
 ): ReactNode {
 	const content = extractBlockquoteContent(block.raw);
 	const inlineNodes = renderInlineTokens(parseInline(content), components);
-	return createElement(
-		"div",
-		{ key: block.id },
-		components.blockquote({ children: inlineNodes }),
-	);
+	return components.blockquote({ children: inlineNodes });
+}
+
+/** Check if list item content needs full block-level parsing */
+function needsBlockParse(content: string): boolean {
+	if (!content.includes("\n")) return false;
+	const lines = content.split("\n");
+	return lines.some((line) => {
+		const t = line.trimStart();
+		return /^```|^~~~|^[-*+]\s|^\d+\.\s|^>\s?|^\|/.test(t);
+	});
 }
 
 function renderList(
@@ -208,9 +204,12 @@ function renderList(
 			return null;
 		}
 
-		const nestedBlocks = parseIncremental(item.content, {
-			bufferIncomplete: false,
-		}).blocks;
+		const nestedBlocks = needsBlockParse(item.content)
+			? parseIncremental(item.content, {
+					bufferIncomplete: false,
+					resetIds: false,
+				}).blocks
+			: [];
 
 		const children =
 			nestedBlocks.length > 0
@@ -232,11 +231,7 @@ function renderList(
 
 	const ListComponent =
 		block.listStyle === "ordered" ? components.ol : components.ul;
-	return createElement(
-		"div",
-		{ key: block.id },
-		ListComponent({ children: items }),
-	);
+	return ListComponent({ children: items });
 }
 
 function parseListItems(raw: string): Array<{ content: string }> {
@@ -312,19 +307,11 @@ function renderTable(
 	const separatorIndex = lines.findIndex((line) => isTableSeparator(line));
 
 	if (separatorIndex === -1) {
-		return createElement(
-			"div",
-			{ key: block.id },
-			components.p({ children: block.raw }),
-		);
+		return components.p({ children: block.raw });
 	}
 
 	if (lines.length === 0) {
-		return createElement(
-			"div",
-			{ key: block.id },
-			components.table({ children: null }),
-		);
+		return components.table({ children: null });
 	}
 
 	const rows: ReactNode[] = [];
@@ -386,11 +373,7 @@ function renderTable(
 		);
 	}
 
-	return createElement(
-		"div",
-		{ key: block.id },
-		components.table({ children: tableChildren }),
-	);
+	return components.table({ children: tableChildren });
 }
 
 type ImageLoadState = "loading" | "ready" | "error";
@@ -519,22 +502,22 @@ function renderInlineToken(
 ): ReactNode {
 	switch (token.type) {
 		case "text":
-			return createElement("span", { key }, token.value);
+			return createElement(Fragment, { key }, token.value);
 		case "strong": {
 			const children = token.children
 				? renderInlineTokens(token.children, components)
 				: token.value;
-			return createElement("span", { key }, components.strong({ children }));
+			return createElement(Fragment, { key }, components.strong({ children }));
 		}
 		case "em": {
 			const children = token.children
 				? renderInlineTokens(token.children, components)
 				: token.value;
-			return createElement("span", { key }, components.em({ children }));
+			return createElement(Fragment, { key }, components.em({ children }));
 		}
 		case "code":
 			return createElement(
-				"span",
+				Fragment,
 				{ key },
 				components.code({ children: token.value, inline: true }),
 			);
@@ -542,14 +525,14 @@ function renderInlineToken(
 			const children = token.children
 				? renderInlineTokens(token.children, components)
 				: token.value;
-			return createElement("span", { key }, components.del({ children }));
+			return createElement(Fragment, { key }, components.del({ children }));
 		}
 		case "link": {
 			const children = token.children
 				? renderInlineTokens(token.children, components)
 				: token.value;
 			return createElement(
-				"span",
+				Fragment,
 				{ key },
 				components.a({ href: sanitizeUrl(token.href ?? ""), children }),
 			);
@@ -558,10 +541,10 @@ function renderInlineToken(
 			const sanitizedSrc = sanitizeUrl(token.href ?? "");
 			// If URL is unsafe, don't render the image at all
 			if (!sanitizedSrc) {
-				return createElement("span", { key }, "[Image]");
+				return createElement(Fragment, { key }, "[Image]");
 			}
 			return createElement(
-				"span",
+				Fragment,
 				{ key },
 				createElement(BufferedImageToken, {
 					src: sanitizedSrc,
@@ -574,15 +557,15 @@ function renderInlineToken(
 			const sanitizedHref = sanitizeUrl(token.href ?? "");
 			// If URL is unsafe (e.g., javascript:), render as plain text
 			if (!sanitizedHref) {
-				return createElement("span", { key }, token.value);
+				return createElement(Fragment, { key }, token.value);
 			}
 			return createElement(
-				"span",
+				Fragment,
 				{ key },
 				components.a({ href: sanitizedHref, children: token.value }),
 			);
 		}
 		default:
-			return createElement("span", { key }, token.value);
+			return createElement(Fragment, { key }, token.value);
 	}
 }

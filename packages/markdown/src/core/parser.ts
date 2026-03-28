@@ -27,7 +27,9 @@ export function parseIncremental(
 ): ParseResult {
 	const bufferIncomplete = options?.bufferIncomplete ?? true;
 
-	resetBlockIds();
+	if (options?.resetIds !== false) {
+		resetBlockIds();
+	}
 
 	if (content.length === 0) {
 		return { blocks: [], buffered: "" };

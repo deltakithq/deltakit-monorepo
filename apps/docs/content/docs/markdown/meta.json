@@ -13,6 +13,7 @@
 		"migration",
 		"---API References---",
 		"streaming-markdown-api",
+		"markdown-api",
 		"use-streaming-markdown",
 		"parse-incremental"
 	]

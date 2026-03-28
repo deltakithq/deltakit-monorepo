@@ -77,6 +77,8 @@ export interface ParseResult {
 export interface ParseOptions {
 	/** Hold back tokens with uncertain syntax (default: true) */
 	bufferIncomplete?: boolean;
+	/** Reset the block ID counter before parsing (default: true). Set to false for nested parses (e.g. list items) to avoid ID collisions. */
+	resetIds?: boolean;
 }
 
 // ── Component Props ──
@@ -163,4 +165,13 @@ export interface UseStreamingMarkdownReturn {
 	nodes: ReactNode[];
 	/** True when streaming has ended (content is stable) */
 	isComplete: boolean;
+}
+
+export interface MarkdownProps {
+	/** The complete markdown content to render */
+	content: string;
+	/** Override renderers per element type */
+	components?: ComponentOverrides;
+	/** className on wrapper div */
+	className?: string;
 }

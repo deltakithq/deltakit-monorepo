@@ -1,0 +1,89 @@
+---
+title: Markdown
+description: Lightweight React component for rendering complete (non-streaming) markdown.
+---
+
+`Markdown` renders markdown content without any streaming overhead. Use it for historical messages, static content, or any case where the content is already complete.
+
+```ts
+import { Markdown } from "@deltakit/markdown";
+```
+
+## When to Use
+
+In a chat UI, most messages in the transcript are **already complete** — only the latest assistant message is actively streaming. Using `StreamingMarkdown` for every historical message adds unnecessary overhead:
+
+- Batching/debouncing timers (`batchMs`)
+- `React.memo` block wrapper with streaming opacity transitions
+- Per-render state management (`useState`, `useEffect`)
+
+`Markdown` skips all of this. It parses once with `useMemo` and renders clean semantic HTML.
+
+```tsx
+{messages.map((msg) => {
+  const isStreaming = msg.id === activeMessageId && msg.role === "assistant";
+  const Component = isStreaming ? StreamingMarkdown : Markdown;
+  return (
+    <div key={msg.id}>
+      {msg.parts
+        .filter((p) => p.type === "text")
+        .map((p, i) => (
+          <Component key={i} content={p.text} />
+        ))}
+    </div>
+  );
+})}
+```
+
+## Props
+
+### `content` (required)
+
+**Type:** `string`
+
+The complete markdown string to render.
+
+```tsx
+<Markdown content="# Hello World\n\nThis is **bold** text." />
+```
+
+### `components`
+
+**Type:** `ComponentOverrides`
+
+Override renderers for specific HTML elements. Same API as `StreamingMarkdown`. See [Custom Components](/docs/markdown/custom-components) for details.
+
+```tsx
+<Markdown
+  content={text}
+  components={{
+    code({ language, children, inline }) {
+      if (inline) return <code>{children}</code>;
+      return <pre><code>{children}</code></pre>;
+    },
+  }}
+/>
+```
+
+### `className`
+
+**Type:** `string`
+
+CSS class applied to the wrapper `<div>`.
+
+```tsx
+<Markdown content={text} className="prose dark:prose-invert" />
+```
+
+## Differences from StreamingMarkdown
+
+| Behavior | StreamingMarkdown | Markdown |
+|----------|-------------------|----------|
+| Render batching (`batchMs`) | Yes (configurable) | No |
+| Incomplete syntax buffering | Yes (configurable) | No (`bufferIncomplete: false`) |
+| Streaming opacity transitions | Yes | No |
+| Shared style injection | Yes | No (no styles needed) |
+| `React.memo` block wrapper | Yes | No |
+| `useState` / `useEffect` | Yes (3 hooks) | No (only `useMemo`) |
+
+Both components accept the same `components` and `className` props, and produce identical DOM output for the same content.

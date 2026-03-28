@@ -1,7 +1,6 @@
 // Main React exports
 export { StreamingMarkdown } from "./component.js";
 export { parseInline } from "./core/inline.js";
-
 // Re-export core parser for direct usage
 export { parseIncremental } from "./core/parser.js";
 // Re-export types
@@ -17,6 +16,7 @@ export type {
 	InlineToken,
 	InlineTokenType,
 	LinkComponentProps,
+	MarkdownProps,
 	ParseOptions,
 	ParseResult,
 	StreamingMarkdownOptions,
@@ -25,3 +25,4 @@ export type {
 	UseStreamingMarkdownReturn,
 } from "./core/types.js";
 export { useStreamingMarkdown } from "./hook.js";
+export { Markdown } from "./static.js";
