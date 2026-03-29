@@ -109,12 +109,13 @@ const BlockRenderer = memo(
 		return renderBlock(block, components);
 	},
 	(prev, next) => {
-		// If the previous block was complete, skip rerender
-		if (prev.block.complete) return true;
-		// Otherwise, compare by raw content
 		return (
+			prev.block.type === next.block.type &&
 			prev.block.raw === next.block.raw &&
-			prev.block.complete === next.block.complete
+			prev.block.complete === next.block.complete &&
+			prev.block.level === next.block.level &&
+			prev.block.language === next.block.language &&
+			prev.block.listStyle === next.block.listStyle
 		);
 	},
 );

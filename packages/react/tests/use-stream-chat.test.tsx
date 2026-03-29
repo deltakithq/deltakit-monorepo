@@ -1,10 +1,11 @@
 import { act, render } from "@testing-library/react";
-import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type {
 	ChatTransport,
 	ChatTransportContext,
-	ChatTransportRun,
+	ContentPart,
+	SSEEvent,
+	UseStreamChatOptions,
 } from "../src/types";
 import { useStreamChat } from "../src/use-stream-chat";
 
@@ -12,21 +13,21 @@ import { useStreamChat } from "../src/use-stream-chat";
 // HookHarness — follows the existing pattern from use-auto-scroll.test.tsx
 // ---------------------------------------------------------------------------
 
-function HookHarness({
+function HookHarness<TEvent extends { type: string } = SSEEvent>({
 	options,
 	onRender,
 }: {
-	options: Parameters<typeof useStreamChat>[0];
+	options: UseStreamChatOptions<ContentPart, TEvent>;
 	onRender: ReturnType<typeof vi.fn>;
 }) {
-	const value = useStreamChat(options);
+	const value = useStreamChat<ContentPart, TEvent>(options);
 	onRender(value);
 	return null;
 }
 
-function createMockTransport() {
+function createMockTransport<TEvent extends { type: string } = SSEEvent>() {
 	const state: {
-		capturedContext: ChatTransportContext | null;
+		capturedContext: ChatTransportContext<ContentPart, TEvent> | null;
 	} = { capturedContext: null };
 
 	const mockRun = {
@@ -35,7 +36,9 @@ function createMockTransport() {
 		runId: null as string | null,
 	};
 
-	const transport: ChatTransport = {
+	const transport: ChatTransport<ContentPart, TEvent> & {
+		resume: NonNullable<ChatTransport<ContentPart, TEvent>["resume"]>;
+	} = {
 		start: ({ context }) => {
 			state.capturedContext = context;
 			return mockRun;
@@ -48,6 +51,15 @@ function createMockTransport() {
 	};
 
 	return { transport, state, mockRun };
+}
+
+function requireContext<TEvent extends { type: string }>(
+	context: ChatTransportContext<ContentPart, TEvent> | null,
+): ChatTransportContext<ContentPart, TEvent> {
+	if (!context) {
+		throw new Error("Expected transport context to be captured");
+	}
+	return context;
 }
 
 describe("useStreamChat", () => {
@@ -172,14 +184,15 @@ describe("useStreamChat", () => {
 		});
 
 		// Emit text_delta events through captured context
+		const context = requireContext(state.capturedContext);
 		act(() => {
-			state.capturedContext!.emit({ type: "text_delta", delta: "hi " } as any);
+			context.emit({ type: "text_delta", delta: "hi " });
 		});
 		act(() => {
-			state.capturedContext!.emit({
+			context.emit({
 				type: "text_delta",
 				delta: "there",
-			} as any);
+			});
 		});
 
 		const msgs = onRender.mock.lastCall?.[0].messages;
@@ -204,8 +217,9 @@ describe("useStreamChat", () => {
 			onRender.mock.lastCall?.[0].sendMessage("hello");
 		});
 
+		const context = requireContext(state.capturedContext);
 		act(() => {
-			state.capturedContext!.finish();
+			context.finish();
 		});
 
 		expect(onRender.mock.lastCall?.[0].isLoading).toBe(false);
@@ -229,8 +243,9 @@ describe("useStreamChat", () => {
 		});
 
 		const error = new Error("stream failed");
+		const context = requireContext(state.capturedContext);
 		act(() => {
-			state.capturedContext!.fail(error);
+			context.fail(error);
 		});
 
 		expect(onRender.mock.lastCall?.[0].error).toBe(error);
@@ -260,12 +275,13 @@ describe("useStreamChat", () => {
 	});
 
 	it("custom onEvent replaces default handler", () => {
+		type CustomEvent = { type: "custom_event"; data: string };
 		const customOnEvent = vi.fn();
-		const { transport, state } = createMockTransport();
+		const { transport, state } = createMockTransport<CustomEvent>();
 		const onRender = vi.fn();
 
 		render(
-			<HookHarness
+			<HookHarness<CustomEvent>
 				options={{ transport, api: "/chat", onEvent: customOnEvent }}
 				onRender={onRender}
 			/>,
@@ -276,8 +292,9 @@ describe("useStreamChat", () => {
 		});
 
 		const event = { type: "custom_event", data: "test" };
+		const context = requireContext(state.capturedContext);
 		act(() => {
-			state.capturedContext!.emit(event as any);
+			context.emit(event);
 		});
 
 		expect(customOnEvent).toHaveBeenCalledWith(
@@ -311,7 +328,7 @@ describe("useStreamChat", () => {
 
 	it("auto-resume triggers transport.resume when candidateRunId provided", () => {
 		const { transport } = createMockTransport();
-		const resumeSpy = vi.spyOn(transport, "resume" as any);
+		const resumeSpy = vi.spyOn(transport, "resume");
 		const onRender = vi.fn();
 
 		render(

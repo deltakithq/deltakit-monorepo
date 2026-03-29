@@ -4,7 +4,7 @@ description: Streaming markdown renderer for AI chat. No flicker. No broken synt
 icon: House
 ---
 
-`@deltakit/markdown` is a React markdown renderer purpose-built for AI streaming. It parses and renders markdown incrementally, so completed blocks never re-render and partial syntax never flickers on screen.
+`@deltakit/markdown` is a React markdown renderer purpose-built for AI streaming. It parses and renders markdown incrementally, so settled blocks usually stay stable and partial syntax never flickers on screen.
 
 ## Why a Separate Renderer?
 
@@ -16,7 +16,7 @@ However, when used with AI streaming, traditional renderers re-run a full parse 
 - **Broken partial syntax** — unclosed `**` renders as plain text, then flickers bold when closed
 - **Layout shifts on code blocks** — `` ``` `` renders as a paragraph until the closing fence arrives
 
-`@deltakit/markdown` solves these problems by design. It parses markdown into blocks, freezes completed blocks via `React.memo`, and buffers uncertain inline syntax until it resolves.
+`@deltakit/markdown` solves these problems by design. It parses markdown into blocks, keeps settled blocks stable via `React.memo`, and buffers uncertain inline syntax until it resolves.
 
 ## What's Included
 

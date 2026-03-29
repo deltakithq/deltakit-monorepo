@@ -67,6 +67,14 @@ export function parseIncremental(
 						}
 
 						if (
+							nextLine !== null &&
+							nextLine.trim() === "" &&
+							lineIdx + 1 === lines.length - 1
+						) {
+							return { blocks, buffered: `${line}\n` };
+						}
+
+						if (
 							nextLine &&
 							isPotentialTableSeparator(nextLine) &&
 							lineIdx + 1 === lines.length - 1
@@ -166,6 +174,19 @@ export function parseIncremental(
 					currentRaw = "";
 					state = "IDLE";
 				} else {
+					if (isPipeTableCandidate(line)) {
+						// A pipe-table header can begin while we're still in paragraph
+						// state due to streaming chunk boundaries. End the paragraph and
+						// re-process this line in IDLE so table buffering/detection runs.
+						blocks.push(
+							createBlock("paragraph", currentRaw, { complete: true }),
+						);
+						currentRaw = "";
+						state = "IDLE";
+						lineIdx--;
+						break;
+					}
+
 					// Check if new line starts a different block type
 					const detected = detectBlockType(line);
 					if (detected && detected.type !== "paragraph") {
@@ -277,15 +298,10 @@ export function parseIncremental(
 						// Root-level: check if list type changed
 						const newListStyle = getListStyle(line);
 						if (newListStyle && newListStyle !== listStyle) {
-							// List type changed - close current list and start new one
-							blocks.push(
-								createBlock("list", currentRaw, {
-									complete: true,
-									listStyle,
-								}),
-							);
-							currentRaw = line;
-							listStyle = newListStyle;
+							// Style changed without a blank line (e.g. "1. Topic\n- detail").
+							// Indent the line so it becomes a nested sub-item of
+							// the previous item rather than splitting into two blocks.
+							currentRaw += `\n  ${line}`;
 						} else {
 							currentRaw += `\n${line}`;
 						}
@@ -314,10 +330,21 @@ export function parseIncremental(
 
 			case "IN_TABLE": {
 				if (isBlankLine) {
-					blocks.push(createBlock("table", currentRaw, { complete: true }));
-					currentRaw = "";
-					state = "IDLE";
+					if (isLastLine && !hasCommittedTableBodyRow(currentRaw)) {
+						// Preserve a trailing newline after the separator/header-only
+						// state so end-of-input buffering can keep the whole table hidden
+						// until the first body row is complete.
+						currentRaw += "\n";
+					} else {
+						blocks.push(createBlock("table", currentRaw, { complete: true }));
+						currentRaw = "";
+						state = "IDLE";
+					}
 				} else if (isPipeTableRow(line)) {
+					currentRaw += `\n${line}`;
+				} else if (isLastLine && isPipeTableCandidate(line)) {
+					// Keep a partial trailing table line attached to the table so the
+					// end-of-input buffering logic can decide when it is safe to render.
 					currentRaw += `\n${line}`;
 				} else {
 					// Non-table line ends the table
@@ -366,77 +393,118 @@ export function parseIncremental(
 				const strippedRaw = stripTrailingEmptyOrPartialListItem(currentRaw);
 				if (strippedRaw !== null) {
 					if (strippedRaw.safe.length > 0) {
-						// Render the list without the trailing empty/partial item
 						currentRaw = strippedRaw.safe;
 					} else {
-						// Only a marker (e.g. just "- " or "-") — buffer entirely
 						buffered = currentRaw;
 						return { blocks, buffered };
 					}
 				}
-			}
 
-			// Check for unclosed inline markers
-			const rawForInlineCheck =
-				state === "IN_HEADING"
-					? currentRaw.replace(/^#{1,6}\s+/, "")
-					: currentRaw;
-			const bufferPoint = findBufferPoint(rawForInlineCheck);
-
-			if (
-				bufferPoint !== -1 &&
-				rawForInlineCheck.length - bufferPoint <= MAX_BUFFER_SIZE
-			) {
-				// Split: safe prefix goes to block, rest is buffered
-				const safeContent = rawForInlineCheck.slice(0, bufferPoint);
-				buffered = rawForInlineCheck.slice(bufferPoint);
-
-				if (state === "IN_HEADING") {
-					const headingMatch = currentRaw.match(/^(#{1,6})\s+/);
-					const level = (headingMatch?.[1]?.length ?? 1) as
-						| 1
-						| 2
-						| 3
-						| 4
-						| 5
-						| 6;
-					const prefix = headingMatch?.[0] ?? "# ";
-					if (safeContent.length > 0) {
-						blocks.push(
-							createBlock("heading", prefix + safeContent, {
-								complete: false,
-								level,
-							}),
-						);
-					}
-				} else {
-					if (safeContent.length > 0) {
-						blocks.push(
-							createBlock(getBlockTypeForState(state), safeContent, {
-								complete: false,
-								listStyle,
-							}),
-						);
-					}
-				}
-			} else {
-				// Buffer too large or no buffer point — just render as incomplete
+				// Render the list immediately — skip inline buffering.
+				// Holding back unclosed markers (e.g. **bold) inside list
+				// items hides most of the list during streaming.
 				blocks.push(
-					createBlock(getBlockTypeForState(state), currentRaw, {
+					createBlock("list", currentRaw, {
 						complete: false,
-						level:
-							state === "IN_HEADING"
-								? ((currentRaw.match(/^(#{1,6})/)?.[1]?.length ?? 1) as
-										| 1
-										| 2
-										| 3
-										| 4
-										| 5
-										| 6)
-								: undefined,
 						listStyle,
 					}),
 				);
+			} else if (state === "IN_TABLE") {
+				const originalTableRaw = currentRaw;
+
+				// Hold back the trailing table line until a newline arrives.
+				// This reduces layout churn while a row or separator is still
+				// being streamed character-by-character.
+				const strippedRaw = stripTrailingUnterminatedTableLine(currentRaw);
+				if (strippedRaw !== null) {
+					if (strippedRaw.safe.length > 0) {
+						currentRaw = strippedRaw.safe;
+						buffered = strippedRaw.trailing;
+					} else {
+						buffered = strippedRaw.trailing;
+						return { blocks, buffered };
+					}
+				}
+
+				// While the table is still incomplete, wait until at least one
+				// newline-terminated body row exists before rendering anything.
+				// This prevents header/separator flicker before the first row lands.
+				if (!hasCommittedTableBodyRow(currentRaw)) {
+					buffered = originalTableRaw;
+					return { blocks, buffered };
+				}
+
+				// Render the settled portion of the table immediately — skip
+				// inline buffering because cell contents can legitimately contain
+				// characters like * or _.
+				blocks.push(
+					createBlock("table", currentRaw, {
+						complete: false,
+					}),
+				);
+			} else {
+				// Check for unclosed inline markers
+				const rawForInlineCheck =
+					state === "IN_HEADING"
+						? currentRaw.replace(/^#{1,6}\s+/, "")
+						: currentRaw;
+				const bufferPoint = findBufferPoint(rawForInlineCheck);
+
+				if (
+					bufferPoint !== -1 &&
+					rawForInlineCheck.length - bufferPoint <= MAX_BUFFER_SIZE
+				) {
+					// Split: safe prefix goes to block, rest is buffered
+					const safeContent = rawForInlineCheck.slice(0, bufferPoint);
+					buffered = rawForInlineCheck.slice(bufferPoint);
+
+					if (state === "IN_HEADING") {
+						const headingMatch = currentRaw.match(/^(#{1,6})\s+/);
+						const level = (headingMatch?.[1]?.length ?? 1) as
+							| 1
+							| 2
+							| 3
+							| 4
+							| 5
+							| 6;
+						const prefix = headingMatch?.[0] ?? "# ";
+						if (safeContent.length > 0) {
+							blocks.push(
+								createBlock("heading", prefix + safeContent, {
+									complete: false,
+									level,
+								}),
+							);
+						}
+					} else {
+						if (safeContent.length > 0) {
+							blocks.push(
+								createBlock(getBlockTypeForState(state), safeContent, {
+									complete: false,
+									listStyle,
+								}),
+							);
+						}
+					}
+				} else {
+					// Buffer too large or no buffer point — just render as incomplete
+					blocks.push(
+						createBlock(getBlockTypeForState(state), currentRaw, {
+							complete: false,
+							level:
+								state === "IN_HEADING"
+									? ((currentRaw.match(/^(#{1,6})/)?.[1]?.length ?? 1) as
+											| 1
+											| 2
+											| 3
+											| 4
+											| 5
+											| 6)
+									: undefined,
+							listStyle,
+						}),
+					);
+				}
 			}
 		} else {
 			// No buffering — render as-is, incomplete
@@ -599,6 +667,54 @@ function stripTrailingEmptyOrPartialListItem(
 		safe: safeLines.join("\n"),
 		trailing: lastLine,
 	};
+}
+
+/**
+ * Hold back the final table line until it has been newline-terminated.
+ *
+ * Examples:
+ * - "| h |\n| - |" buffers the whole candidate until the separator line ends
+ * - "| h |\n| - |\n| a |" renders header+separator and buffers "| a |"
+ */
+function stripTrailingUnterminatedTableLine(
+	raw: string,
+): { safe: string; trailing: string } | null {
+	const lines = raw.split("\n");
+	if (lines.length === 0) return null;
+
+	const trailing = lines[lines.length - 1];
+	if (trailing.length === 0) return null;
+
+	const safeLines = lines.slice(0, -1);
+	if (safeLines.length === 0) {
+		return {
+			safe: "",
+			trailing,
+		};
+	}
+
+	const safe = safeLines.join("\n");
+	const stillLooksLikeTable =
+		safeLines.length >= 2 && safeLines.some((line) => isTableSeparator(line));
+
+	if (!stillLooksLikeTable) {
+		return {
+			safe: "",
+			trailing: raw,
+		};
+	}
+
+	return {
+		safe,
+		trailing,
+	};
+}
+
+function hasCommittedTableBodyRow(raw: string): boolean {
+	const lines = raw.split("\n").filter((line) => line.trim().length > 0);
+	const separatorIndex = lines.findIndex((line) => isTableSeparator(line));
+	if (separatorIndex === -1) return false;
+	return lines.slice(separatorIndex + 1).some((line) => line.trim().length > 0);
 }
 
 /** Map parser state to block type */

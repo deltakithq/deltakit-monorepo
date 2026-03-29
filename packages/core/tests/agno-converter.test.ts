@@ -21,7 +21,10 @@ describe("fromAgnoAgents", () => {
 		});
 
 		it("skips non-object items", () => {
-			const result = fromAgnoAgents([null as any, 42 as any]);
+			const result = fromAgnoAgents([
+				null as unknown as AgnoMessage,
+				42 as unknown as AgnoMessage,
+			]);
 			expect(result).toEqual([]);
 		});
 

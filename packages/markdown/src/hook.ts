@@ -199,12 +199,7 @@ function renderList(
 	block: Block,
 	components: Required<ComponentOverrides>,
 ): ReactNode {
-	// Hold back the last item while streaming — same pattern as tables.
-	// Only render items that are "settled" (followed by another item or blank line).
-	let parsedItems = parseListItems(block.raw);
-	if (!block.complete && !block.raw.endsWith("\n") && parsedItems.length > 1) {
-		parsedItems = parsedItems.slice(0, -1);
-	}
+	const parsedItems = parseListItems(block.raw);
 
 	const items = parsedItems.map((item, index) => {
 		if (item.content.trim().length === 0) {
@@ -306,11 +301,7 @@ function renderTable(
 	block: Block,
 	components: Required<ComponentOverrides>,
 ): ReactNode {
-	const allLines = block.raw.split("\n").filter((l) => l.trim().length > 0);
-	const lines =
-		!block.complete && !block.raw.endsWith("\n") && allLines.length > 2
-			? allLines.slice(0, -1)
-			: allLines;
+	const lines = block.raw.split("\n").filter((l) => l.trim().length > 0);
 	const separatorIndex = lines.findIndex((line) => isTableSeparator(line));
 
 	if (separatorIndex === -1) {

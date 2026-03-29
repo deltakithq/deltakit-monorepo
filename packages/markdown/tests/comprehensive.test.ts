@@ -167,11 +167,11 @@ describe("comprehensive markdown parsing", () => {
 		});
 
 		describe("mixed lists", () => {
-			it("should handle ordered list switching to unordered", () => {
+			it("should nest unordered items under ordered when style changes without blank line", () => {
 				const result = parseIncremental("1. ordered\n- unordered\n\n");
-				expect(result.blocks).toHaveLength(2);
+				expect(result.blocks).toHaveLength(1);
 				expect(result.blocks[0].type).toBe("list");
-				expect(result.blocks[1].type).toBe("list");
+				expect(result.blocks[0].listStyle).toBe("ordered");
 			});
 		});
 	});
@@ -338,7 +338,9 @@ describe("comprehensive markdown parsing", () => {
 			const result = parseIncremental("| A | B |\n| 1 | 2 |");
 			expect(result.blocks).toHaveLength(1);
 			expect(result.blocks[0].type).toBe("paragraph");
-			expect(result.blocks[0].complete).toBe(false);
+			expect(result.blocks[0].complete).toBe(true);
+			expect(result.blocks[0].raw).toBe("| A | B |");
+			expect(result.buffered).toBe("| 1 | 2 |");
 		});
 
 		it("should handle table followed by paragraph", () => {
@@ -433,7 +435,7 @@ describe("comprehensive markdown parsing", () => {
 		});
 
 		it("should handle very long paragraph", () => {
-			const content = "word ".repeat(1000) + "\n\n";
+			const content = `${"word ".repeat(1000)}\n\n`;
 			const result = parseIncremental(content);
 			expect(result.blocks).toHaveLength(1);
 			expect(result.blocks[0].type).toBe("paragraph");
@@ -635,9 +637,8 @@ Final paragraph.
 
 		it("should start rendering a table once the separator row is valid", () => {
 			const result = parseIncremental("| Col A | Col B |\n|---|---|");
-			expect(result.blocks).toHaveLength(1);
-			expect(result.blocks[0].type).toBe("table");
-			expect(result.blocks[0].complete).toBe(false);
+			expect(result.blocks).toHaveLength(0);
+			expect(result.buffered).toBe("| Col A | Col B |\n|---|---|");
 		});
 
 		it("should handle chunk at block boundary", () => {
@@ -696,7 +697,7 @@ Final paragraph.
 		it("should handle extremely deeply nested structure", () => {
 			let content = "- item\n";
 			for (let i = 0; i < 20; i++) {
-				content += "  ".repeat(i + 1) + "- nested\n";
+				content += `${"  ".repeat(i + 1)}- nested\n`;
 			}
 			content += "\n";
 			const result = parseIncremental(content);

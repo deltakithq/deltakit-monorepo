@@ -165,7 +165,10 @@ describe("block rendering", () => {
 			const { container } = renderMarkdown(content);
 			expect(container.querySelector("ol")).toBeTruthy();
 			// Should have exactly 4 top-level <li> (direct children of <ol>)
-			const ol = container.querySelector("ol")!;
+			const ol = container.querySelector("ol");
+			if (!ol) {
+				throw new Error("Expected ordered list to be rendered");
+			}
 			const topLevelItems = ol.querySelectorAll(":scope > li");
 			expect(topLevelItems.length).toBe(4);
 		});

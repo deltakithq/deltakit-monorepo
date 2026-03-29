@@ -48,6 +48,23 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 	const isAutoScrollingRef = useRef(false);
 	const cooldownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+	const disengageAutoScroll = useCallback(() => {
+		isAtBottomRef.current = false;
+		setIsAtBottom(false);
+
+		if (rafRef.current != null) {
+			cancelAnimationFrame(rafRef.current);
+			rafRef.current = null;
+		}
+
+		if (cooldownRef.current != null) {
+			clearTimeout(cooldownRef.current);
+			cooldownRef.current = null;
+		}
+
+		isAutoScrollingRef.current = false;
+	}, []);
+
 	// -------------------------------------------------------------------
 	// scheduleScroll — lerp-based auto-scroll
 	//
@@ -126,10 +143,20 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 			setIsAtBottom((prev) => (prev === atBottom ? prev : atBottom));
 		};
 
+		const handleWheel = (event: WheelEvent) => {
+			if (event.deltaY < 0) {
+				disengageAutoScroll();
+			}
+		};
+
 		el.addEventListener("scroll", handleScroll, { passive: true });
+		el.addEventListener("wheel", handleWheel, { passive: true });
 		handleScroll();
-		return () => el.removeEventListener("scroll", handleScroll);
-	}, [enabled, threshold]);
+		return () => {
+			el.removeEventListener("scroll", handleScroll);
+			el.removeEventListener("wheel", handleWheel);
+		};
+	}, [disengageAutoScroll, enabled, threshold]);
 
 	// -------------------------------------------------------------------
 	// Scroll to bottom when dependencies change (if pinned).

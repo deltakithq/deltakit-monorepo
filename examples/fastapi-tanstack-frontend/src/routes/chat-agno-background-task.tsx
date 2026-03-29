@@ -209,20 +209,12 @@ function ChatAgnoBackgroundTask() {
 											return (
 												<div
 													key={`reasoning-${partIndex}`}
-													className="rounded border border-neutral-700 bg-neutral-800/50 p-3 text-sm text-neutral-400 italic"
+													className="prose prose-invert prose-sm max-w-none"
 												>
-													<div className="mb-2 flex items-center gap-2">
-														<span className="text-xs font-medium uppercase tracking-wider text-neutral-500">
-															Thinking
-														</span>
-														{isLoading &&
-															partIndex === msg.parts.length - 1 && (
-																<span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-neutral-500" />
-															)}
-													</div>
-													<p className="whitespace-pre-wrap">
-														{reasoningPart.text}
-													</p>
+													<StreamingMarkdown
+														content={reasoningPart.text}
+														batchMs={8}
+													/>
 												</div>
 											);
 										}
