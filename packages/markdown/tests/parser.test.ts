@@ -232,7 +232,7 @@ describe("parseIncremental", () => {
 		});
 
 		it("should force-flush buffer over 200 chars", () => {
-			const longText = "Hello **" + "a".repeat(250);
+			const longText = `Hello **${"a".repeat(250)}`;
 			const result = parseIncremental(longText, { bufferIncomplete: true });
 			// Should not buffer since it exceeds 200 chars
 			expect(result.blocks).toHaveLength(1);
@@ -506,12 +506,12 @@ describe("parseIncremental", () => {
 			expect(result.blocks[0].complete).toBe(true);
 		});
 
-		it("should still split root-level style changes into separate blocks", () => {
+		it("should nest style changes without a blank line as sub-items", () => {
 			const content = "1. Ordered\n- Unordered\n\n";
 			const result = parseIncremental(content);
-			expect(result.blocks).toHaveLength(2);
+			expect(result.blocks).toHaveLength(1);
 			expect(result.blocks[0].listStyle).toBe("ordered");
-			expect(result.blocks[1].listStyle).toBe("unordered");
+			expect(result.blocks[0].raw).toContain("Unordered");
 		});
 	});
 

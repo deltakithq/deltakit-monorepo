@@ -53,7 +53,7 @@ const { ref } = useAutoScroll([messages], { enabled: false });
 
 **Type:** `number` — Default: `50`
 
-Distance in pixels from the bottom within which the container is considered "at bottom". When the user scrolls up beyond this threshold, auto-scroll pauses. When they scroll back within it, auto-scroll re-engages.
+Distance in pixels from the bottom within which the container is considered "at bottom". When the user scrolls up beyond this threshold, or wheels upward during active pinning, auto-scroll pauses. When they scroll back within it, auto-scroll re-engages.
 
 ```tsx
 const { ref } = useAutoScroll([messages], { threshold: 100 });
@@ -114,7 +114,7 @@ return <ul ref={ref}>{/* items */}</ul>;
 |---|---|
 | Initial render | Pinned to bottom |
 | Content streams in (pinned) | Stays at bottom |
-| User scrolls up | Auto-scroll pauses |
+| User scrolls up / wheels upward | Auto-scroll pauses immediately |
 | Content streams in (detached) | View stays where user left it |
 | User scrolls back near bottom | Auto-scroll re-engages |
 | `scrollToBottom()` called | Force-scrolls to bottom, re-pins |

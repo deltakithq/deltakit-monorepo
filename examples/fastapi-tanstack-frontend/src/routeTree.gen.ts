@@ -8,124 +8,150 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as ChatAgnoWebsocketRouteImport } from './routes/chat-agno-websocket'
-import { Route as ChatAgnoBackgroundTaskRouteImport } from './routes/chat-agno-background-task'
-import { Route as ChatAgnoRouteImport } from './routes/chat-agno'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as rootRouteImport } from "./routes/__root";
+import { Route as ChatAgnoRouteImport } from "./routes/chat-agno";
+import { Route as ChatAgnoBackgroundTaskRouteImport } from "./routes/chat-agno-background-task";
+import { Route as ChatAgnoWebsocketRouteImport } from "./routes/chat-agno-websocket";
+import { Route as ChatStaticRouteImport } from "./routes/chat-static";
+import { Route as IndexRouteImport } from "./routes/index";
 
+const ChatStaticRoute = ChatStaticRouteImport.update({
+	id: "/chat-static",
+	path: "/chat-static",
+	getParentRoute: () => rootRouteImport,
+} as any);
 const ChatAgnoWebsocketRoute = ChatAgnoWebsocketRouteImport.update({
-  id: '/chat-agno-websocket',
-  path: '/chat-agno-websocket',
-  getParentRoute: () => rootRouteImport,
-} as any)
+	id: "/chat-agno-websocket",
+	path: "/chat-agno-websocket",
+	getParentRoute: () => rootRouteImport,
+} as any);
 const ChatAgnoBackgroundTaskRoute = ChatAgnoBackgroundTaskRouteImport.update({
-  id: '/chat-agno-background-task',
-  path: '/chat-agno-background-task',
-  getParentRoute: () => rootRouteImport,
-} as any)
+	id: "/chat-agno-background-task",
+	path: "/chat-agno-background-task",
+	getParentRoute: () => rootRouteImport,
+} as any);
 const ChatAgnoRoute = ChatAgnoRouteImport.update({
-  id: '/chat-agno',
-  path: '/chat-agno',
-  getParentRoute: () => rootRouteImport,
-} as any)
+	id: "/chat-agno",
+	path: "/chat-agno",
+	getParentRoute: () => rootRouteImport,
+} as any);
 const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
+	id: "/",
+	path: "/",
+	getParentRoute: () => rootRouteImport,
+} as any);
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/chat-agno': typeof ChatAgnoRoute
-  '/chat-agno-background-task': typeof ChatAgnoBackgroundTaskRoute
-  '/chat-agno-websocket': typeof ChatAgnoWebsocketRoute
+	"/": typeof IndexRoute;
+	"/chat-agno": typeof ChatAgnoRoute;
+	"/chat-agno-background-task": typeof ChatAgnoBackgroundTaskRoute;
+	"/chat-agno-websocket": typeof ChatAgnoWebsocketRoute;
+	"/chat-static": typeof ChatStaticRoute;
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/chat-agno': typeof ChatAgnoRoute
-  '/chat-agno-background-task': typeof ChatAgnoBackgroundTaskRoute
-  '/chat-agno-websocket': typeof ChatAgnoWebsocketRoute
+	"/": typeof IndexRoute;
+	"/chat-agno": typeof ChatAgnoRoute;
+	"/chat-agno-background-task": typeof ChatAgnoBackgroundTaskRoute;
+	"/chat-agno-websocket": typeof ChatAgnoWebsocketRoute;
+	"/chat-static": typeof ChatStaticRoute;
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/chat-agno': typeof ChatAgnoRoute
-  '/chat-agno-background-task': typeof ChatAgnoBackgroundTaskRoute
-  '/chat-agno-websocket': typeof ChatAgnoWebsocketRoute
+	__root__: typeof rootRouteImport;
+	"/": typeof IndexRoute;
+	"/chat-agno": typeof ChatAgnoRoute;
+	"/chat-agno-background-task": typeof ChatAgnoBackgroundTaskRoute;
+	"/chat-agno-websocket": typeof ChatAgnoWebsocketRoute;
+	"/chat-static": typeof ChatStaticRoute;
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/chat-agno'
-    | '/chat-agno-background-task'
-    | '/chat-agno-websocket'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chat-agno' | '/chat-agno-background-task' | '/chat-agno-websocket'
-  id:
-    | '__root__'
-    | '/'
-    | '/chat-agno'
-    | '/chat-agno-background-task'
-    | '/chat-agno-websocket'
-  fileRoutesById: FileRoutesById
+	fileRoutesByFullPath: FileRoutesByFullPath;
+	fullPaths:
+		| "/"
+		| "/chat-agno"
+		| "/chat-agno-background-task"
+		| "/chat-agno-websocket"
+		| "/chat-static";
+	fileRoutesByTo: FileRoutesByTo;
+	to:
+		| "/"
+		| "/chat-agno"
+		| "/chat-agno-background-task"
+		| "/chat-agno-websocket"
+		| "/chat-static";
+	id:
+		| "__root__"
+		| "/"
+		| "/chat-agno"
+		| "/chat-agno-background-task"
+		| "/chat-agno-websocket"
+		| "/chat-static";
+	fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  ChatAgnoRoute: typeof ChatAgnoRoute
-  ChatAgnoBackgroundTaskRoute: typeof ChatAgnoBackgroundTaskRoute
-  ChatAgnoWebsocketRoute: typeof ChatAgnoWebsocketRoute
+	IndexRoute: typeof IndexRoute;
+	ChatAgnoRoute: typeof ChatAgnoRoute;
+	ChatAgnoBackgroundTaskRoute: typeof ChatAgnoBackgroundTaskRoute;
+	ChatAgnoWebsocketRoute: typeof ChatAgnoWebsocketRoute;
+	ChatStaticRoute: typeof ChatStaticRoute;
 }
 
-declare module '@tanstack/react-router' {
-  interface FileRoutesByPath {
-    '/chat-agno-websocket': {
-      id: '/chat-agno-websocket'
-      path: '/chat-agno-websocket'
-      fullPath: '/chat-agno-websocket'
-      preLoaderRoute: typeof ChatAgnoWebsocketRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/chat-agno-background-task': {
-      id: '/chat-agno-background-task'
-      path: '/chat-agno-background-task'
-      fullPath: '/chat-agno-background-task'
-      preLoaderRoute: typeof ChatAgnoBackgroundTaskRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/chat-agno': {
-      id: '/chat-agno'
-      path: '/chat-agno'
-      fullPath: '/chat-agno'
-      preLoaderRoute: typeof ChatAgnoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-  }
+declare module "@tanstack/react-router" {
+	interface FileRoutesByPath {
+		"/chat-static": {
+			id: "/chat-static";
+			path: "/chat-static";
+			fullPath: "/chat-static";
+			preLoaderRoute: typeof ChatStaticRouteImport;
+			parentRoute: typeof rootRouteImport;
+		};
+		"/chat-agno-websocket": {
+			id: "/chat-agno-websocket";
+			path: "/chat-agno-websocket";
+			fullPath: "/chat-agno-websocket";
+			preLoaderRoute: typeof ChatAgnoWebsocketRouteImport;
+			parentRoute: typeof rootRouteImport;
+		};
+		"/chat-agno-background-task": {
+			id: "/chat-agno-background-task";
+			path: "/chat-agno-background-task";
+			fullPath: "/chat-agno-background-task";
+			preLoaderRoute: typeof ChatAgnoBackgroundTaskRouteImport;
+			parentRoute: typeof rootRouteImport;
+		};
+		"/chat-agno": {
+			id: "/chat-agno";
+			path: "/chat-agno";
+			fullPath: "/chat-agno";
+			preLoaderRoute: typeof ChatAgnoRouteImport;
+			parentRoute: typeof rootRouteImport;
+		};
+		"/": {
+			id: "/";
+			path: "/";
+			fullPath: "/";
+			preLoaderRoute: typeof IndexRouteImport;
+			parentRoute: typeof rootRouteImport;
+		};
+	}
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  ChatAgnoRoute: ChatAgnoRoute,
-  ChatAgnoBackgroundTaskRoute: ChatAgnoBackgroundTaskRoute,
-  ChatAgnoWebsocketRoute: ChatAgnoWebsocketRoute,
-}
+	IndexRoute: IndexRoute,
+	ChatAgnoRoute: ChatAgnoRoute,
+	ChatAgnoBackgroundTaskRoute: ChatAgnoBackgroundTaskRoute,
+	ChatAgnoWebsocketRoute: ChatAgnoWebsocketRoute,
+	ChatStaticRoute: ChatStaticRoute,
+};
 export const routeTree = rootRouteImport
-  ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+	._addFileChildren(rootRouteChildren)
+	._addFileTypes<FileRouteTypes>();
 
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
+import type { createStart } from "@tanstack/react-start";
+import type { getRouter } from "./router.tsx";
+
+declare module "@tanstack/react-start" {
+	interface Register {
+		ssr: true;
+		router: Awaited<ReturnType<typeof getRouter>>;
+	}
 }

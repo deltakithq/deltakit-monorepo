@@ -3,7 +3,7 @@ title: StreamingMarkdown
 description: How block-level incremental rendering works.
 ---
 
-The `<StreamingMarkdown />` component renders markdown incrementally at the block level. Completed blocks are frozen via `React.memo` and never re-render, regardless of how many new tokens arrive.
+The `<StreamingMarkdown />` component renders markdown incrementally at the block level. Settled blocks are memoized so only the active block normally re-renders as new tokens arrive.
 
 ## How It Works
 
@@ -12,14 +12,14 @@ As markdown streams in, the parser splits content into **blocks** — headings, 
 ```
 Stream: "# Hello\n\nThis is a paragraph being streamed tok"
 
-Stable blocks (never re-render):
+Stable blocks (normally do not re-render):
   [0] <h1>Hello</h1>              <- complete, frozen
 
 Active block (re-renders on each token):
   [1] <p>This is a paragraph being streamed tok</p>
 ```
 
-Each block gets a stable React `key`. When a new block starts, the previous one is marked complete and wrapped in `React.memo` with a custom comparator that always returns `true` for complete blocks. React's reconciler skips it entirely.
+Each block gets a stable React `key`. When a new block starts, the previous one is treated as settled and wrapped in `React.memo` with a comparator that skips unchanged blocks. If later parsing extends the same block because the stream was still ambiguous, that block can still update.
 
 ## Block Completion Rules
 

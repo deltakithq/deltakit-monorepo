@@ -221,6 +221,27 @@ onEvent: (event, { appendText, appendPart, setMessages }) => {
 }
 ```
 
+### `useAutoScroll(deps, options?)`
+
+Use this hook to keep a scroll container pinned to the bottom while assistant content streams:
+
+```tsx
+import { useAutoScroll } from "@deltakit/react";
+
+function Transcript({ messages }) {
+  const { ref, scrollToBottom, isAtBottom } = useAutoScroll([messages]);
+
+  return (
+    <div ref={ref} style={{ maxHeight: 480, overflowY: "auto" }}>
+      {/* messages */}
+      {!isAtBottom && <button onClick={scrollToBottom}>Scroll to bottom</button>}
+    </div>
+  );
+}
+```
+
+During active pinning, upward wheel input now detaches auto-scroll immediately so manual scrolling always wins.
+
 ### Custom Content Parts
 
 Extend with custom types using generics:

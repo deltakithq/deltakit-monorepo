@@ -18,7 +18,7 @@ This is the most objective comparison — no caveats needed.
 
 `react-markdown` is **9.3x larger** because it bundles the full unified/remark/rehype pipeline. `@deltakit/markdown` has zero runtime dependencies — the parser is built from scratch.
 
-> **Note on streaming stability:** `@deltakit/markdown` buffers partial block-level markers (e.g. `#`, `-`, `1.`) during streaming to prevent choppy rendering. Empty headings and list bullets never flash in the DOM.
+> **Note on streaming stability:** `@deltakit/markdown` buffers partial block-level markers and early table lines during streaming to prevent choppy rendering. Empty headings, orphan list bullets, and standalone table headers never flash in the DOM.
 
 ## Render Performance
 
@@ -26,9 +26,9 @@ Both libraries render the same markdown content via `renderToStaticMarkup`. Meas
 
 | Benchmark | @deltakit/markdown | react-markdown | Speedup |
 |-----------|-------------------|----------------|---------|
-| Short paragraph (~60 chars) | 124,000 ops/s | 26,000 ops/s | ~4.9x |
-| Mixed content (~1.2kb) | 5,100 ops/s | 1,100 ops/s | ~4.6x |
-| Streaming simulation (141 re-renders) | 70 ops/s | 17 ops/s | ~4.2x |
+| Short paragraph (~60 chars) | 174,000 ops/s | 25,000 ops/s | ~7.0x |
+| Mixed content (~1.2kb) | 6,825 ops/s | 1,040 ops/s | ~6.6x |
+| Streaming simulation (141 re-renders) | 76 ops/s | 16 ops/s | ~4.7x |
 
 ### Caveats
 
@@ -36,7 +36,7 @@ These numbers are real, but context matters:
 
 - **@deltakit/markdown produces clean semantic HTML.** Blocks render directly as semantic elements (`<h1>`, `<p>`, `<pre>`, etc.) without wrapper `<div>` or `<span>` elements. Less DOM work naturally means faster rendering. This is not a same-output comparison.
 - **react-markdown runs a full CommonMark pipeline.** It parses via micromark, transforms through the remark/rehype AST pipeline, and produces spec-compliant HTML. We run a simplified regex-based parser. Being faster while doing less work is expected, not remarkable.
-- **The streaming simulation uses `renderToStaticMarkup`.** This does NOT demonstrate our `React.memo` block memoization advantage. In a real browser with React reconciliation, completed blocks would be skipped entirely — but that's difficult to benchmark accurately in a synthetic test.
+- **The streaming simulation uses `renderToStaticMarkup`.** This does NOT demonstrate our `React.memo` block memoization advantage. In a real browser with React reconciliation, settled blocks would usually be skipped unless later parsing extended the same block — but that's difficult to benchmark accurately in a synthetic test.
 
 ## Parse-Only Performance
 
@@ -44,9 +44,9 @@ We also benchmark our parser (`parseIncremental`) against [micromark](https://gi
 
 | Benchmark | @deltakit/markdown | micromark | Speedup |
 |-----------|-------------------|-----------|---------|
-| Short paragraph | 3,881,000 ops/s | 29,000 ops/s | ~135x |
-| Mixed content (~1.2kb) | 243,000 ops/s | 1,400 ops/s | ~172x |
-| Streaming sim (141 parses) | 2,056 ops/s | 20 ops/s | ~101x |
+| Short paragraph | 3,720,000 ops/s | 26,500 ops/s | ~140x |
+| Mixed content (~1.2kb) | 219,700 ops/s | 1,351 ops/s | ~163x |
+| Streaming sim (141 parses) | 2,080 ops/s | 20.4 ops/s | ~102x |
 
 ### Caveats
 
@@ -118,8 +118,8 @@ This is where react-markdown clearly has the advantage. It's a mature, battle-te
 
 | Feature | Description |
 |---------|-------------|
-| Block-level `React.memo` | Completed blocks never re-render, regardless of new tokens |
-| Incomplete syntax buffering | Raw `**`, `` ` ``, `[` never visible during streaming |
+| Block-level `React.memo` | Settled blocks normally avoid re-rendering while the active block updates |
+| Incomplete syntax buffering | Raw `**`, `` ` ``, `[`, and incomplete table starts stay hidden during streaming |
 | Code block skeleton | Pending code blocks render as empty `<pre>` shells, not paragraphs |
 | Render batching (`batchMs`) | Configurable DOM update frequency (8ms, 16ms, 32ms) |
 | Static `Markdown` component | Lightweight renderer for completed messages — no batching, debouncing, or streaming styles |

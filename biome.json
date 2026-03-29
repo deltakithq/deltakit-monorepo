@@ -37,6 +37,24 @@
 			}
 		}
 	},
+	"overrides": [
+		{
+			"includes": [
+				"apps/docs/.source/**",
+				"apps/docs/src/routeTree.gen.ts",
+				"examples/fastapi-tanstack-frontend/src/routeTree.gen.ts"
+			],
+			"formatter": {
+				"enabled": false
+			},
+			"linter": {
+				"enabled": false
+			},
+			"assist": {
+				"enabled": false
+			}
+		}
+	],
 	"css": {
 		"parser": {
 			"tailwindDirectives": true
