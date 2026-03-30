@@ -28,6 +28,8 @@ export interface Block {
 	language?: string;
 	/** List style: ordered or unordered */
 	listStyle?: "ordered" | "unordered";
+	/** Starting number for ordered lists */
+	listStart?: number;
 }
 
 // ── Parser State Machine ──
@@ -79,6 +81,8 @@ export interface ParseOptions {
 	bufferIncomplete?: boolean;
 	/** Reset the block ID counter before parsing (default: true). Set to false for nested parses (e.g. list items) to avoid ID collisions. */
 	resetIds?: boolean;
+	/** Allow streaming-friendly bare ordered list markers such as `1 item` in safe contexts. */
+	relaxedOrderedListMarkers?: boolean;
 }
 
 // ── Component Props ──
@@ -113,6 +117,14 @@ export interface DefaultComponentProps {
 	children: ReactNode;
 }
 
+export interface ListComponentProps extends DefaultComponentProps {
+	start?: number;
+}
+
+export interface ListItemComponentProps extends DefaultComponentProps {
+	value?: number;
+}
+
 /** Map of overridable element renderers */
 export interface ComponentOverrides {
 	p?: (props: DefaultComponentProps) => ReactNode;
@@ -126,8 +138,8 @@ export interface ComponentOverrides {
 	pre?: (props: DefaultComponentProps) => ReactNode;
 	blockquote?: (props: DefaultComponentProps) => ReactNode;
 	ul?: (props: DefaultComponentProps) => ReactNode;
-	ol?: (props: DefaultComponentProps) => ReactNode;
-	li?: (props: DefaultComponentProps) => ReactNode;
+	ol?: (props: ListComponentProps) => ReactNode;
+	li?: (props: ListItemComponentProps) => ReactNode;
 	a?: (props: LinkComponentProps) => ReactNode;
 	strong?: (props: DefaultComponentProps) => ReactNode;
 	em?: (props: DefaultComponentProps) => ReactNode;

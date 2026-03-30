@@ -193,6 +193,31 @@ export interface TransportOptions<TEvent extends { type: string } = SSEEvent> {
 	websocket?: WebSocketTransportOptions<TEvent>;
 }
 
+export type StreamStatus =
+	| "starting"
+	| "resuming"
+	| "stopped"
+	| "finished"
+	| "error";
+
+export type StreamStatusReason = "user" | "unmount";
+
+export interface StreamStatusContext<
+	TPart extends { type: string } = ContentPart,
+> {
+	/** Latest messages at the time the status changed. */
+	messages: Message<TPart>[];
+
+	/** Run id associated with the transition, if available. */
+	runId: string | null;
+
+	/** Present when status is `error`. */
+	error?: Error;
+
+	/** Present when status is `stopped`. */
+	reason?: StreamStatusReason;
+}
+
 // ---------------------------------------------------------------------------
 // Hook Options
 // ---------------------------------------------------------------------------
@@ -248,6 +273,12 @@ export interface UseStreamChatOptions<
 
 	/** Called when a fetch or stream error occurs. */
 	onError?: (error: Error) => void;
+
+	/** Called when the chat lifecycle changes (start, resume, stop, finish, error). */
+	onStatusChange?: (
+		status: StreamStatus,
+		context: StreamStatusContext<TPart>,
+	) => void;
 }
 
 // ---------------------------------------------------------------------------

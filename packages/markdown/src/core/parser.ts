@@ -6,6 +6,7 @@ import {
 	isPipeTableRow,
 	isPotentialTableSeparator,
 	isTableSeparator,
+	matchOrderedListMarker,
 	resetBlockIds,
 } from "./blocks.js";
 import { findBufferPoint } from "./inline.js";
@@ -26,6 +27,7 @@ export function parseIncremental(
 	options?: ParseOptions,
 ): ParseResult {
 	const bufferIncomplete = options?.bufferIncomplete ?? true;
+	const relaxedOrderedListMarkers = options?.relaxedOrderedListMarkers ?? false;
 
 	if (options?.resetIds !== false) {
 		resetBlockIds();
@@ -42,6 +44,7 @@ export function parseIncremental(
 	let codeFenceMarker = "";
 	let codeLanguage: string | undefined;
 	let listStyle: "ordered" | "unordered" | undefined;
+	let listStart: number | undefined;
 
 	for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
 		const line = lines[lineIdx];
@@ -84,7 +87,13 @@ export function parseIncremental(
 					return { blocks, buffered: line };
 				}
 
-				const detected = detectBlockType(line);
+				const detected =
+					getRelaxedOrderedListDetection(
+						lines,
+						lineIdx,
+						blocks,
+						relaxedOrderedListMarkers,
+					) ?? detectBlockType(line);
 				if (!detected) continue;
 
 				switch (detected.type) {
@@ -125,6 +134,7 @@ export function parseIncremental(
 					case "list": {
 						currentRaw = line;
 						listStyle = detected.listStyle;
+						listStart = detected.listStart;
 						state = "IN_LIST";
 						break;
 					}
@@ -247,15 +257,39 @@ export function parseIncremental(
 			}
 
 			case "IN_LIST": {
+				const allowBareOrdered = shouldTreatAsBareOrderedListItem(
+					lines,
+					lineIdx,
+					blocks,
+					listStyle === "ordered" && relaxedOrderedListMarkers,
+				);
+
 				if (isBlankLine) {
+					const nextNonEmptyLine = findNextNonEmptyLine(lines, lineIdx + 1);
+
 					// Check if the next line continues the list
-					if (nextLine && isListItem(nextLine)) {
+					if (
+						nextNonEmptyLine &&
+						isListItem(nextNonEmptyLine, {
+							allowBareOrdered:
+								relaxedOrderedListMarkers &&
+								shouldTreatAsBareOrderedListItem(
+									lines,
+									findNextNonEmptyLineIndex(lines, lineIdx + 1) ?? lineIdx + 1,
+									blocks,
+									listStyle === "ordered",
+								),
+						})
+					) {
 						currentRaw += `\n${line}`;
-					} else if (nextLine && isContinuation(nextLine)) {
+					} else if (nextNonEmptyLine && isContinuation(nextNonEmptyLine)) {
 						// Blank line inside a list item before an indented continuation,
 						// including fenced code blocks nested under the item.
 						currentRaw += `\n${line}`;
-					} else if (nextLine && isIndentedContinuation(nextLine)) {
+					} else if (
+						nextNonEmptyLine &&
+						isIndentedContinuation(nextNonEmptyLine)
+					) {
 						// Multi-paragraph list item: indented content after blank line
 						currentRaw += `\n${line}`;
 					} else {
@@ -263,29 +297,45 @@ export function parseIncremental(
 							createBlock("list", currentRaw, {
 								complete: true,
 								listStyle,
+								listStart,
 							}),
 						);
 						currentRaw = "";
 						listStyle = undefined;
+						listStart = undefined;
 						state = "IDLE";
 					}
-				} else if (isListItem(line)) {
+				} else if (
+					isListItem(line, {
+						allowBareOrdered: relaxedOrderedListMarkers && allowBareOrdered,
+					})
+				) {
 					if (isIndentedLine(line)) {
 						// Nested list item — keep in current block
 						currentRaw += `\n${line}`;
 					} else {
 						// Root-level: check if list type changed
-						const newListStyle = getListStyle(line);
+						const newListStyle = getListStyle(line, {
+							allowBareOrdered: relaxedOrderedListMarkers && allowBareOrdered,
+						});
 						if (newListStyle && newListStyle !== listStyle) {
 							// List type changed - close current list and start new one
 							blocks.push(
 								createBlock("list", currentRaw, {
 									complete: true,
 									listStyle,
+									listStart,
 								}),
 							);
 							currentRaw = line;
 							listStyle = newListStyle;
+							listStart =
+								newListStyle === "ordered"
+									? getOrderedListStart(line, {
+											allowBareOrdered:
+												relaxedOrderedListMarkers && allowBareOrdered,
+										})
+									: undefined;
 						} else {
 							currentRaw += `\n${line}`;
 						}
@@ -302,10 +352,12 @@ export function parseIncremental(
 						createBlock("list", currentRaw, {
 							complete: true,
 							listStyle,
+							listStart,
 						}),
 					);
 					currentRaw = "";
 					listStyle = undefined;
+					listStart = undefined;
 					state = "IDLE";
 					lineIdx--;
 				}
@@ -415,6 +467,7 @@ export function parseIncremental(
 							createBlock(getBlockTypeForState(state), safeContent, {
 								complete: false,
 								listStyle,
+								listStart,
 							}),
 						);
 					}
@@ -435,6 +488,7 @@ export function parseIncremental(
 										| 6)
 								: undefined,
 						listStyle,
+						listStart,
 					}),
 				);
 			}
@@ -454,6 +508,7 @@ export function parseIncremental(
 									| 6)
 							: undefined,
 					listStyle,
+					listStart,
 				}),
 			);
 		}
@@ -473,9 +528,17 @@ function isIndentedLine(line: string): boolean {
 }
 
 /** Check if a line is a list item */
-function isListItem(line: string): boolean {
+function isListItem(
+	line: string,
+	options?: { allowBareOrdered?: boolean },
+): boolean {
 	const trimmed = line.trimStart();
-	return /^[-*+]\s+/.test(trimmed) || /^\d+\.(?!\d)\s+/.test(trimmed);
+	return (
+		/^[-*+]\s+/.test(trimmed) ||
+		matchOrderedListMarker(trimmed, {
+			allowBare: options?.allowBareOrdered,
+		}) !== null
+	);
 }
 
 /** Check if a line is a continuation of a list item (indented) */
@@ -494,7 +557,7 @@ function isIndentedContinuation(line: string): boolean {
 	// Doesn't start a new block
 	if (/^#{1,6}\s/.test(trimmed)) return false; // heading
 	if (/^[-*+]\s+/.test(trimmed)) return false; // unordered list
-	if (/^\d+\.(?!\d)\s+/.test(trimmed)) return false; // ordered list
+	if (matchOrderedListMarker(trimmed) !== null) return false; // ordered list
 	if (/^```|~~~/.test(trimmed)) return false; // code fence
 	if (/^\|/.test(trimmed)) return false; // table
 	// Non-empty line
@@ -504,10 +567,127 @@ function isIndentedContinuation(line: string): boolean {
 /**
  * Get the list style (ordered or unordered) of a list item line.
  */
-function getListStyle(line: string): "ordered" | "unordered" | null {
+function getListStyle(
+	line: string,
+	options?: { allowBareOrdered?: boolean },
+): "ordered" | "unordered" | null {
 	const trimmed = line.trimStart();
 	if (/^[-*+]\s+/.test(trimmed)) return "unordered";
-	if (/^\d+\.(?!\d)\s+/.test(trimmed)) return "ordered";
+	if (
+		matchOrderedListMarker(trimmed, {
+			allowBare: options?.allowBareOrdered,
+		}) !== null
+	) {
+		return "ordered";
+	}
+	return null;
+}
+
+function getOrderedListStart(
+	line: string,
+	options?: { allowBareOrdered?: boolean },
+): number | undefined {
+	return (
+		matchOrderedListMarker(line, {
+			allowBare: options?.allowBareOrdered,
+		})?.start ?? undefined
+	);
+}
+
+function getRelaxedOrderedListDetection(
+	lines: string[],
+	lineIdx: number,
+	blocks: Block[],
+	relaxedOrderedListMarkers: boolean,
+): ReturnType<typeof detectBlockType> {
+	if (!relaxedOrderedListMarkers) {
+		return null;
+	}
+
+	if (!shouldTreatAsBareOrderedListItem(lines, lineIdx, blocks, false)) {
+		return null;
+	}
+
+	const listStart = getOrderedListStart(lines[lineIdx], {
+		allowBareOrdered: true,
+	});
+	if (listStart === undefined) {
+		return null;
+	}
+
+	return {
+		type: "list",
+		listStyle: "ordered",
+		listStart,
+	};
+}
+
+function shouldTreatAsBareOrderedListItem(
+	lines: string[],
+	lineIdx: number,
+	blocks: Block[],
+	inOrderedList: boolean,
+): boolean {
+	const line = lines[lineIdx];
+	if (!looksLikeBareOrderedListItem(line)) {
+		return false;
+	}
+
+	if (inOrderedList) {
+		return true;
+	}
+
+	const previousBlock = blocks[blocks.length - 1];
+	if (previousBlock?.type === "list" && previousBlock.listStyle === "ordered") {
+		return true;
+	}
+
+	const nextNonEmptyLine = findNextNonEmptyLine(lines, lineIdx + 1);
+	return (
+		nextNonEmptyLine !== null &&
+		isListItem(nextNonEmptyLine, { allowBareOrdered: true })
+	);
+}
+
+function looksLikeBareOrderedListItem(line: string): boolean {
+	if (matchOrderedListMarker(line) !== null) {
+		return false;
+	}
+
+	const match = line.trimStart().match(/^(\d+)\s+(.+)$/);
+	if (!match) {
+		return false;
+	}
+
+	const content = match[2];
+	return (
+		content.startsWith("`") ||
+		content.startsWith("[") ||
+		content.startsWith("(") ||
+		content.startsWith("http://") ||
+		content.startsWith("https://") ||
+		content.includes(" - ")
+	);
+}
+
+function findNextNonEmptyLine(
+	lines: string[],
+	startIndex: number,
+): string | null {
+	const index = findNextNonEmptyLineIndex(lines, startIndex);
+	return index === null ? null : lines[index];
+}
+
+function findNextNonEmptyLineIndex(
+	lines: string[],
+	startIndex: number,
+): number | null {
+	for (let idx = startIndex; idx < lines.length; idx++) {
+		if (lines[idx].trim().length > 0) {
+			return idx;
+		}
+	}
+
 	return null;
 }
 
@@ -523,7 +703,7 @@ function isLazyContinuation(line: string): boolean {
 	// Doesn't start a new block
 	if (/^#{1,6}\s/.test(trimmed)) return false; // heading
 	if (/^[-*+]\s+/.test(trimmed)) return false; // unordered list
-	if (/^\d+\.(?!\d)\s+/.test(trimmed)) return false; // ordered list
+	if (matchOrderedListMarker(trimmed) !== null) return false; // ordered list
 	if (/^```|~~~/.test(trimmed)) return false; // code fence
 	if (/^\|/.test(trimmed)) return false; // table
 	if (/^>\s?/.test(trimmed)) return false; // nested blockquote

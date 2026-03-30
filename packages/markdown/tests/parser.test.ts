@@ -71,7 +71,66 @@ describe("parseIncremental", () => {
 			expect(result.blocks).toHaveLength(1);
 			expect(result.blocks[0].type).toBe("list");
 			expect(result.blocks[0].listStyle).toBe("ordered");
+			expect(result.blocks[0].listStart).toBe(1);
 			expect(result.blocks[0].complete).toBe(true);
+		});
+
+		it("should tolerate bare ordered markers in safe streaming contexts", () => {
+			const result = parseIncremental(
+				"1 `alpha` - first\n\n2. `beta` - second\n3. `gamma` - third\n\n",
+				{
+					relaxedOrderedListMarkers: true,
+				},
+			);
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("list");
+			expect(result.blocks[0].listStyle).toBe("ordered");
+			expect(result.blocks[0].listStart).toBe(1);
+			expect(result.blocks[0].complete).toBe(true);
+		});
+
+		it("should keep bare ordered markers as paragraphs without relaxed parsing", () => {
+			const result = parseIncremental(
+				"1 `alpha` - first\n\n2. `beta` - second\n3. `gamma` - third\n\n",
+			);
+			expect(result.blocks).toHaveLength(2);
+			expect(result.blocks[0].type).toBe("paragraph");
+			expect(result.blocks[1].type).toBe("list");
+		});
+
+		it("should keep a bare numeric code line as a paragraph while parsing real ordered items", () => {
+			const content = "23490249234\n\n1. `dsfsdofsdpf23`\n2. `next-item`\n\n";
+			const result = parseIncremental(content, {
+				relaxedOrderedListMarkers: true,
+			});
+			expect(result.blocks).toHaveLength(2);
+			expect(result.blocks[0].type).toBe("paragraph");
+			expect(result.blocks[0].raw).toBe("23490249234");
+			expect(result.blocks[1].type).toBe("list");
+			expect(result.blocks[1].listStyle).toBe("ordered");
+			expect(result.blocks[1].listStart).toBe(1);
+			expect(result.blocks[1].raw).toContain("1. `dsfsdofsdpf23`");
+			expect(result.blocks[1].raw).toContain("2. `next-item`");
+		});
+
+		it("should keep one ordered list block when AI inserts blank lines between later items", () => {
+			const content =
+				"9. ID: 69ae0993e876c10e6240a2fb - User ID: 976 - https://github.com/ardhi21/agentic-workflow\n\n\n10. ID: 69ad6869e876c10e6367e0e3 - User ID: 605 - https://github.com/martjellino/agentic-spec-generator\n11. ID: 69ad46fce876c10e645aceda - User ID: 520 - https://github.com/HendraaaIrwn/Agentic-workflow-Job-interview\n12. ID: 69aaed91e876c10e6367e0e1 - User ID: 959 - https://github.com/imamst/agentic-workflow-practice\n13. ID: 69aa68b4e876c10e6240a2f7 - User ID: 904 - https://github.com/agateknik/bootcamp_ai_enabled_python_web_development/tree/main/assignment_materials/04.agentic_workflow\n\n\n14. ID: 69aa5360e876c10e6240a2f6 - User ID: 964 - https://github.com/ghiffariarwandani/agentic-basic\n15. ID: 69a9bce9e876c10e6367e0df - User ID: 954 - https://github.com/davadinata/trip-planner\n\n";
+			const result = parseIncremental(content, {
+				relaxedOrderedListMarkers: true,
+			});
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("list");
+			expect(result.blocks[0].listStyle).toBe("ordered");
+			expect(result.blocks[0].listStart).toBe(9);
+			expect(result.blocks[0].complete).toBe(true);
+			expect(result.blocks[0].raw).toContain("9. ID: 69ae0993e876c10e6240a2fb");
+			expect(result.blocks[0].raw).toContain(
+				"10. ID: 69ad6869e876c10e6367e0e3",
+			);
+			expect(result.blocks[0].raw).toContain(
+				"14. ID: 69aa5360e876c10e6240a2f6",
+			);
 		});
 
 		it("should parse a horizontal rule", () => {

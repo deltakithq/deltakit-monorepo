@@ -14,9 +14,11 @@ export interface ChatControllerOptions<
 	appendText: EventHelpers<TPart>["appendText"];
 	eventHandler: (event: TEvent, helpers: EventHelpers<TPart>) => void;
 	getMessages: () => Message<TPart>[];
+	getRunId: () => string | null;
 	onError?: UseStreamChatOptions<TPart, TEvent>["onError"];
 	onFinish?: UseStreamChatOptions<TPart, TEvent>["onFinish"];
 	onMessage?: UseStreamChatOptions<TPart, TEvent>["onMessage"];
+	onStatusChange?: UseStreamChatOptions<TPart, TEvent>["onStatusChange"];
 	setError: Dispatch<SetStateAction<Error | null>>;
 	setIsLoading: Dispatch<SetStateAction<boolean>>;
 	setMessages: Dispatch<SetStateAction<Message<TPart>[]>>;
@@ -63,12 +65,19 @@ export function createChatTransportContext<
 			});
 		},
 		fail: (error) => {
+			const currentRunId = options.getRunId();
 			options.setError(error);
 			options.onError?.(error);
 			options.setIsLoading(false);
 			options.setRunId(null);
+			options.onStatusChange?.("error", {
+				error,
+				messages: options.getMessages(),
+				runId: currentRunId,
+			});
 		},
 		finish: () => {
+			const currentRunId = options.getRunId();
 			options.setIsLoading(false);
 			options.setRunId(null);
 
@@ -80,6 +89,10 @@ export function createChatTransportContext<
 			}
 
 			options.onFinish?.(finalMessages);
+			options.onStatusChange?.("finished", {
+				messages: finalMessages,
+				runId: currentRunId,
+			});
 		},
 		getMessages: options.getMessages,
 		setRunId: (runId) => {

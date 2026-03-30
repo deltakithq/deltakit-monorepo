@@ -204,6 +204,43 @@ useStreamChat({
 });
 ```
 
+### `onStatusChange`
+
+**Type:** `(status: "starting" | "resuming" | "stopped" | "finished" | "error", context: { messages: Message<TPart>[]; runId: string | null; error?: Error; reason?: "user" | "unmount" }) => void`
+
+Called whenever the stream lifecycle changes. Use this for analytics, toasts, logging, or side-effects that need more detail than `isLoading`.
+
+```ts
+useStreamChat({
+  api: "/api/chat",
+  onStatusChange: (status, { runId, reason, error }) => {
+    if (status === "starting") {
+      console.log("Starting chat request");
+    }
+
+    if (status === "resuming") {
+      console.log("Resuming run:", runId);
+    }
+
+    if (status === "stopped" && reason === "user") {
+      console.log("User stopped the run");
+    }
+
+    if (status === "error") {
+      console.error("Chat failed:", error);
+    }
+  },
+});
+```
+
+Status meanings:
+
+- `starting` — a new `sendMessage()` request started
+- `resuming` — the hook is reconnecting to an existing run
+- `stopped` — the active run stopped because the user called `stop()` or the component unmounted
+- `finished` — the stream completed successfully
+- `error` — the stream failed
+
 ## Return Values
 
 ### `messages`

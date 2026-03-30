@@ -71,6 +71,7 @@ const {
   transport: "sse",           // "sse" | "background-sse" | "websocket" | custom adapter
   transportOptions: {},       // Grouped config for built-in transports
   onEvent: (event, helpers) => {},  // Custom event handler (replaces default)
+  onStatusChange: (status, context) => {}, // Lifecycle transitions
   onFinish: (messages) => {},       // Stream ended
   onMessage: (message) => {},       // New message added
   onError: (error) => {},           // Fetch/stream error

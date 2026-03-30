@@ -11,6 +11,8 @@ icon: House
 - **`useStreamChat`**. The core hook that manages the full streaming lifecycle: state, network, cancellation, and event handling.
 - **`EventHelpers`**. Helper methods for mutating message state inside `onEvent` callbacks.
 
+`useStreamChat` also exposes `onStatusChange` when you need lifecycle side-effects such as analytics, logging, toasts, or persistence around start/resume/stop/finish/error transitions.
+
 ## Installation
 
 ```bash tab="pnpm"
@@ -54,6 +56,27 @@ function Chat() {
     </div>
   );
 }
+```
+
+## Lifecycle Side Effects
+
+```tsx
+useStreamChat({
+  api: "/api/chat",
+  onStatusChange: (status, { runId, reason }) => {
+    if (status === "starting") {
+      analytics.track("chat_started");
+    }
+
+    if (status === "resuming") {
+      console.log("Reconnected to run:", runId);
+    }
+
+    if (status === "stopped" && reason === "user") {
+      toast("Generation stopped");
+    }
+  },
+});
 ```
 
 ## Next Steps

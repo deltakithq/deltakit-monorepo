@@ -16,6 +16,8 @@ export type {
 	InlineToken,
 	InlineTokenType,
 	LinkComponentProps,
+	ListComponentProps,
+	ListItemComponentProps,
 	MarkdownProps,
 	ParseOptions,
 	ParseResult,

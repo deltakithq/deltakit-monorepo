@@ -109,12 +109,15 @@ const BlockRenderer = memo(
 		return renderBlock(block, components);
 	},
 	(prev, next) => {
-		// If the previous block was complete, skip rerender
-		if (prev.block.complete) return true;
-		// Otherwise, compare by raw content
 		return (
+			prev.components === next.components &&
 			prev.block.raw === next.block.raw &&
-			prev.block.complete === next.block.complete
+			prev.block.complete === next.block.complete &&
+			prev.block.type === next.block.type &&
+			prev.block.level === next.block.level &&
+			prev.block.language === next.block.language &&
+			prev.block.listStyle === next.block.listStyle &&
+			prev.block.listStart === next.block.listStart
 		);
 	},
 );
@@ -176,7 +179,11 @@ export function StreamingMarkdown({
 	}, [content, batchMs]);
 
 	const parsed = useMemo(
-		() => parseIncremental(renderContent, { bufferIncomplete }),
+		() =>
+			parseIncremental(renderContent, {
+				bufferIncomplete,
+				relaxedOrderedListMarkers: true,
+			}),
 		[renderContent, bufferIncomplete],
 	);
 

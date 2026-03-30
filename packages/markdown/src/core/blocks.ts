@@ -13,6 +13,7 @@ export function detectBlockType(line: string): {
 	level?: HeadingLevel;
 	language?: string;
 	listStyle?: "ordered" | "unordered";
+	listStart?: number;
 } | null {
 	const trimmed = line.trimStart();
 
@@ -50,8 +51,13 @@ export function detectBlockType(line: string): {
 	}
 
 	// Ordered list: 1. 2. etc. (but not version numbers like 1.0 or 2.5.1)
-	if (/^\d+\.(?!\d)\s+/.test(trimmed)) {
-		return { type: "list", listStyle: "ordered" };
+	const orderedMatch = matchOrderedListMarker(trimmed);
+	if (orderedMatch) {
+		return {
+			type: "list",
+			listStyle: "ordered",
+			listStart: orderedMatch.start,
+		};
 	}
 
 	// Default: paragraph (any non-empty text)
@@ -71,6 +77,7 @@ export function createBlock(
 		level?: HeadingLevel;
 		language?: string;
 		listStyle?: "ordered" | "unordered";
+		listStart?: number;
 	},
 ): Block {
 	return {
@@ -81,6 +88,35 @@ export function createBlock(
 		level: options?.level,
 		language: options?.language,
 		listStyle: options?.listStyle,
+		listStart: options?.listStart,
+	};
+}
+
+export function matchOrderedListMarker(
+	line: string,
+	options?: { allowBare?: boolean },
+): { start: number; marker: string } | null {
+	const trimmed = line.trimStart();
+	const strictMatch = trimmed.match(/^(\d+)\.(?!\d)\s+/);
+	if (strictMatch) {
+		return {
+			start: Number(strictMatch[1]),
+			marker: strictMatch[0],
+		};
+	}
+
+	if (!options?.allowBare) {
+		return null;
+	}
+
+	const bareMatch = trimmed.match(/^(\d+)\s+/);
+	if (!bareMatch) {
+		return null;
+	}
+
+	return {
+		start: Number(bareMatch[1]),
+		marker: bareMatch[0],
 	};
 }
 

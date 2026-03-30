@@ -124,6 +124,7 @@ describe("detectBlockType", () => {
 			expect(detectBlockType("1. item")).toEqual({
 				type: "list",
 				listStyle: "ordered",
+				listStart: 1,
 			});
 		});
 
