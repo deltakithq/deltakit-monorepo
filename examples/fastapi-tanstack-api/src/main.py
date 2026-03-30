@@ -7,6 +7,7 @@ from src.modules.chat_agno_background_task.router import (
     router as chat_agno_background_task_router,
 )
 from src.modules.chat_agno_websocket.router import router as chat_agno_websocket_router
+from src.modules.chat_static.router import router as chat_static_router
 
 app = FastAPI(title="FastAPI Backend", version="0.1.0")
 
@@ -22,6 +23,7 @@ app.include_router(chat_router)
 app.include_router(chat_agno_router)
 app.include_router(chat_agno_background_task_router)
 app.include_router(chat_agno_websocket_router)
+app.include_router(chat_static_router)
 
 
 @app.get("/")

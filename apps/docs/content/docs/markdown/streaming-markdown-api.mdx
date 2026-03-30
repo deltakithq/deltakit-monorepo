@@ -3,7 +3,7 @@ title: StreamingMarkdown
 description: The main React component for rendering streaming markdown.
 ---
 
-`StreamingMarkdown` renders markdown content with block-level memoization. Completed blocks never re-render, and incomplete syntax is buffered to prevent flicker.
+`StreamingMarkdown` renders markdown content with block-level memoization. Settled blocks stay stable unless later parsing extends the same block, and incomplete syntax is buffered to prevent flicker.
 
 ```ts
 import { StreamingMarkdown } from "@deltakit/markdown";

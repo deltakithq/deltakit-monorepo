@@ -80,6 +80,16 @@ function Navigation() {
 						>
 							Agno WebSocket
 						</Link>
+						<Link
+							to="/chat-static"
+							activeProps={{ className: "text-white" }}
+							inactiveProps={{
+								className: "text-neutral-500 hover:text-neutral-300",
+							}}
+							className="text-sm font-medium transition-colors"
+						>
+							Static Stream
+						</Link>
 					</div>
 				</div>
 			</div>

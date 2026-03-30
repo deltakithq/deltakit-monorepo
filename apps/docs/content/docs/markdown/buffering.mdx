@@ -80,6 +80,6 @@ Disabling buffering makes sense when:
 
 ## Notes
 
-- Buffering only affects **inline** syntax. Block-level markers (headings, code fences, list items) are handled by the block parser and don't need buffering.
+- Buffering primarily affects **inline** syntax, but the block parser also holds back uncertain block starts such as partial table headers/separators, trailing incomplete table rows, empty heading markers, and partial list markers.
 - Code blocks that are still being streamed (opening `` ``` `` received but no closing fence yet) render as an empty `<pre><code>` shell, not as buffered text. This is handled separately from inline buffering.
 - The 200-character threshold is a safety net, not a tuning knob. In practice, LLMs rarely produce unclosed inline markers that span more than a few tokens.

@@ -29,7 +29,11 @@ describe("fromOpenAiAgents", () => {
 		});
 
 		it("skips non-object items", () => {
-			const result = fromOpenAiAgents([null as any, 42 as any, "str" as any]);
+			const result = fromOpenAiAgents([
+				null as unknown as RawItem,
+				42 as unknown as RawItem,
+				"str" as unknown as RawItem,
+			]);
 			expect(result).toEqual([]);
 		});
 

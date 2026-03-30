@@ -273,6 +273,51 @@ describe("useAutoScroll", () => {
 		vi.unstubAllGlobals();
 	});
 
+	it("disengages immediately when the user wheels upward during active auto-scroll", () => {
+		vi.useFakeTimers();
+		const { mutationObservers } = setupObservers();
+
+		const onRender = vi.fn();
+		const view = render(
+			<HookHarness deps={[[{ id: 1 }]]} onRender={onRender} />,
+		);
+		const el = view.container.firstElementChild as HTMLDivElement;
+		attachScrollableMetrics(el);
+
+		act(() => {
+			el.scrollHeight = 1800;
+			view.rerender(
+				<HookHarness deps={[[{ id: 1 }, { id: 2 }]]} onRender={onRender} />,
+			);
+			mutationObservers[0]?.trigger();
+		});
+
+		advanceFrame();
+		const scrollTopBeforeWheel = el.scrollTop;
+		expect(scrollTopBeforeWheel).toBeGreaterThan(600);
+
+		act(() => {
+			el.dispatchEvent(
+				new WheelEvent("wheel", {
+					deltaY: -120,
+				}),
+			);
+		});
+
+		expect(onRender.mock.lastCall?.[0].isAtBottom).toBe(false);
+
+		act(() => {
+			el.scrollHeight = 2200;
+			mutationObservers[0]?.trigger();
+		});
+		advanceLerpToTarget(el, 1800);
+
+		expect(el.scrollTop).toBe(scrollTopBeforeWheel);
+
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+	});
+
 	it("scrollToBottom re-pins and honors the configured behavior", () => {
 		// No fake timers — we only need to verify the imperative call.
 		vi.stubGlobal(

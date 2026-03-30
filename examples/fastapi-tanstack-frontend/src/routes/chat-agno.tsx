@@ -149,7 +149,7 @@ function ChatAgno() {
 										case "text":
 											return (
 												<div
-													key={"text-${partIndex}"}
+													key={`text-${partIndex}`}
 													className="prose prose-invert prose-sm max-w-none"
 												>
 													<StreamingMarkdown content={part.text} batchMs={8} />
@@ -158,7 +158,7 @@ function ChatAgno() {
 										case "tool_call":
 											return (
 												<ToolCall
-													key={"tool_call-${partIndex}"}
+													key={`tool_call-${partIndex}`}
 													argument={part.argument}
 													result={part.result}
 												/>
@@ -170,7 +170,7 @@ function ChatAgno() {
 											};
 											return (
 												<div
-													key={"reasoning-${partIndex}"}
+													key={`reasoning-${partIndex}`}
 													className="rounded border border-neutral-700 bg-neutral-800/50 p-3 text-sm text-neutral-400 italic"
 												>
 													<div className="flex items-center gap-2 mb-2">

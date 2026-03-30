@@ -335,8 +335,9 @@ describe("streaming simulation", () => {
 				}),
 			);
 			const initialTable = partial.container.querySelector("table");
-			expect(initialTable).toBeTruthy();
-			expect(initialTable?.textContent).not.toContain("Alice");
+			expect(initialTable).toBeFalsy();
+			expect(partial.container.textContent).not.toContain("Name");
+			expect(partial.container.textContent).not.toContain("Alice");
 
 			const completed = render(
 				createElement(StreamingMarkdown, {
@@ -352,8 +353,108 @@ describe("streaming simulation", () => {
 			});
 		});
 
-		it("should hold back an incomplete trailing list item until newline", async () => {
-			// Streaming: second item is still being typed
+		it("should hold back a trailing table row even if the row text looks complete until newline arrives", async () => {
+			const partial = render(
+				createElement(StreamingMarkdown, {
+					content: "| Name | Age |\n|------|-----|\n| Alice | 30 |",
+					batchMs: 0,
+				}),
+			);
+
+			const initialTable = partial.container.querySelector("table");
+			expect(initialTable).toBeFalsy();
+			expect(partial.container.textContent).not.toContain("Name");
+			expect(partial.container.textContent).not.toContain("Alice");
+			expect(partial.container.textContent).not.toContain("30");
+
+			const completed = render(
+				createElement(StreamingMarkdown, {
+					content: "| Name | Age |\n|------|-----|\n| Alice | 30 |\n",
+					batchMs: 0,
+				}),
+			);
+
+			await waitFor(() => {
+				const completedTable = completed.container.querySelector("table");
+				expect(completedTable?.textContent).toContain("Alice");
+				expect(completedTable?.textContent).toContain("30");
+			});
+		});
+
+		it("should hold back a table until the first body row is newline-terminated", async () => {
+			const partial = render(
+				createElement(StreamingMarkdown, {
+					content: "| Name | Age |\n|------|-----|\n",
+					batchMs: 0,
+				}),
+			);
+
+			expect(partial.container.querySelector("table")).toBeFalsy();
+			expect(partial.container.textContent).not.toContain("Name");
+
+			const completed = render(
+				createElement(StreamingMarkdown, {
+					content: "| Name | Age |\n|------|-----|\n| Alice | 30 |\n",
+					batchMs: 0,
+				}),
+			);
+
+			await waitFor(() => {
+				const completedTable = completed.container.querySelector("table");
+				expect(completedTable).toBeTruthy();
+				expect(completedTable?.textContent).toContain("Name");
+				expect(completedTable?.textContent).toContain("Age");
+				expect(completedTable?.textContent).toContain("Alice");
+			});
+		});
+
+		it("should hold back a newline-terminated table header until the separator arrives", () => {
+			const partial = render(
+				createElement(StreamingMarkdown, {
+					content: "| Name | Type | Description |\n",
+					batchMs: 0,
+				}),
+			);
+
+			expect(partial.container.querySelector("table")).toBeFalsy();
+			expect(partial.container.textContent).not.toContain("Name");
+			expect(partial.container.querySelector("p")).toBeFalsy();
+		});
+
+		it("should not flash the next table header as raw paragraph text between streamed tables", async () => {
+			const partialContent =
+				"| A | B |\n|---|---|\n| 1 | 2 |\n\n| Name | Type | Description |";
+			const completedContent =
+				"| A | B |\n|---|---|\n| 1 | 2 |\n\n| Name | Type | Description |\n|------|------|-------------|\n| id | string | markdown body |\n";
+
+			const view = render(
+				createElement(StreamingMarkdown, {
+					content: partialContent,
+					batchMs: 0,
+				}),
+			);
+
+			expect(view.container.textContent).toContain("A");
+			expect(view.container.textContent).toContain("1");
+			expect(view.container.textContent).not.toContain("Name");
+			expect(view.container.querySelectorAll("table")).toHaveLength(1);
+
+			view.rerender(
+				createElement(StreamingMarkdown, {
+					content: completedContent,
+					batchMs: 0,
+				}),
+			);
+
+			await waitFor(() => {
+				expect(view.container.textContent).toContain("Name");
+				expect(view.container.textContent).toContain("markdown body");
+				expect(view.container.querySelectorAll("table")).toHaveLength(2);
+			});
+		});
+
+		it("should render all list items immediately during streaming", async () => {
+			// Streaming: second item is still being typed — renders immediately
 			const partial = render(
 				createElement(StreamingMarkdown, {
 					content: "- Item 1\n- Item 2 partial",
@@ -362,11 +463,10 @@ describe("streaming simulation", () => {
 			);
 			const partialList = partial.container.querySelector("ul");
 			expect(partialList).toBeTruthy();
-			// Only the first (settled) item should render
 			expect(partialList?.textContent).toContain("Item 1");
-			expect(partialList?.textContent).not.toContain("Item 2");
+			expect(partialList?.textContent).toContain("Item 2 partial");
 
-			// Once newline arrives, both items render
+			// Once complete, all items render
 			const completed = render(
 				createElement(StreamingMarkdown, {
 					content: "- Item 1\n- Item 2 complete\n",
@@ -378,6 +478,91 @@ describe("streaming simulation", () => {
 				const completedList = completed.container.querySelector("ul");
 				expect(completedList?.textContent).toContain("Item 1");
 				expect(completedList?.textContent).toContain("Item 2 complete");
+			});
+		});
+
+		it("should update a previously completed list block when later chunks extend it", async () => {
+			const partialContent = `## Nested Ordered List
+
+1. Planning Phase
+   1. Gather requirements
+   2. Define scope
+   3. Create timeline
+`;
+
+			const fullContent = `## Nested Ordered List
+
+1. Planning Phase
+   1. Gather requirements
+   2. Define scope
+   3. Create timeline
+2. Development Phase
+   1. Set up project structure
+   2. Implement core features
+`;
+
+			const view = render(
+				createElement(StreamingMarkdown, {
+					content: partialContent,
+					batchMs: 0,
+				}),
+			);
+
+			expect(view.container.textContent).toContain("Planning Phase");
+			expect(view.container.textContent).not.toContain("Development Phase");
+
+			view.rerender(
+				createElement(StreamingMarkdown, {
+					content: fullContent,
+					batchMs: 0,
+				}),
+			);
+
+			await waitFor(() => {
+				expect(view.container.textContent).toContain("Development Phase");
+				expect(view.container.textContent).toContain(
+					"Set up project structure",
+				);
+				expect(view.container.querySelectorAll("ol").length).toBeGreaterThan(1);
+			});
+		});
+
+		it("should update a previously completed table block when later chunks add rows", async () => {
+			const partialContent = `## Simple Table
+
+| Name | Type | Description |
+|------|------|-------------|
+`;
+
+			const fullContent = `## Simple Table
+
+| Name | Type | Description |
+|------|------|-------------|
+| id | string | Unique identifier |
+| role | enum | user or assistant |
+`;
+
+			const view = render(
+				createElement(StreamingMarkdown, {
+					content: partialContent,
+					batchMs: 0,
+				}),
+			);
+
+			expect(view.container.textContent).not.toContain("Name");
+			expect(view.container.textContent).not.toContain("Unique identifier");
+
+			view.rerender(
+				createElement(StreamingMarkdown, {
+					content: fullContent,
+					batchMs: 0,
+				}),
+			);
+
+			await waitFor(() => {
+				expect(view.container.textContent).toContain("Unique identifier");
+				expect(view.container.textContent).toContain("user or assistant");
+				expect(view.container.querySelectorAll("tbody tr")).toHaveLength(2);
 			});
 		});
 

@@ -15,7 +15,7 @@ Assistant responses contain markdown formatting (headings, lists, code blocks, l
 
 ## Option 1: @deltakit/markdown (Streaming-Optimized)
 
-`@deltakit/markdown` is built for AI streaming. It freezes completed blocks via `React.memo` and buffers incomplete syntax to prevent flicker.
+`@deltakit/markdown` is built for AI streaming. It keeps settled blocks stable via `React.memo` and buffers incomplete syntax to prevent flicker.
 
 ```bash tab="pnpm"
 pnpm add @deltakit/markdown

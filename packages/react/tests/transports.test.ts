@@ -352,7 +352,10 @@ describe("createBackgroundSSETransport", () => {
 		});
 		const ctx = createMockContext();
 
-		transport.resume!({ context: ctx, runId: "run_xyz" });
+		if (!transport.resume) {
+			throw new Error("Expected background SSE transport resume");
+		}
+		transport.resume({ context: ctx, runId: "run_xyz" });
 
 		await vi.waitFor(() => {
 			expect(ctx.finish).toHaveBeenCalled();
@@ -576,7 +579,10 @@ describe("createWebSocketTransport", () => {
 		});
 		const ctx = createMockContext();
 
-		transport.resume!({ context: ctx, runId: "run_resume" });
+		if (!transport.resume) {
+			throw new Error("Expected websocket transport resume");
+		}
+		transport.resume({ context: ctx, runId: "run_resume" });
 		await new Promise((r) => setTimeout(r, 0));
 
 		const ws = MockWebSocket.instances[0];
@@ -660,7 +666,10 @@ describe("createWebSocketTransport", () => {
 		});
 		const ctx = createMockContext();
 
-		transport.resume!({ context: ctx, runId: "run_custom" });
+		if (!transport.resume) {
+			throw new Error("Expected websocket transport resume");
+		}
+		transport.resume({ context: ctx, runId: "run_custom" });
 		await new Promise((r) => setTimeout(r, 0));
 
 		const ws = MockWebSocket.instances[0];

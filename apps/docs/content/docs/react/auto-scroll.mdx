@@ -53,7 +53,7 @@ function Chat() {
 The hook tracks whether the user is near the bottom of the scroll container:
 
 - **Pinned (default)** — as content grows, the view stays at the bottom.
-- **Detached** — when the user scrolls up, auto-scroll pauses so they can read earlier messages undisturbed.
+- **Detached** — when the user scrolls up, or wheels upward during active pinning, auto-scroll disengages so they can read earlier messages undisturbed.
 - **Re-pinned** — when the user scrolls back near the bottom (within `threshold` pixels), auto-scroll re-engages automatically.
 
 Internally the hook uses a `MutationObserver` and `ResizeObserver`, so it catches content changes during streaming even between React re-renders (e.g. DOM mutations from markdown renderers).

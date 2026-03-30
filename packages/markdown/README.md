@@ -1,6 +1,6 @@
 # @deltakit/markdown
 
-Streaming markdown renderer for AI chat UIs. Parses and renders markdown incrementally so completed blocks never re-render and partial syntax never flickers on screen. Zero dependencies beyond React.
+Streaming markdown renderer for AI chat UIs. Parses and renders markdown incrementally so settled blocks usually stay stable and partial syntax never flickers on screen. Zero dependencies beyond React.
 
 ## Installation
 
@@ -69,7 +69,7 @@ function Chat() {
 
 ### `<StreamingMarkdown />`
 
-The main component for rendering actively streaming markdown. Completed blocks are frozen via `React.memo` and never re-render.
+The main component for rendering actively streaming markdown. Settled blocks are memoized via `React.memo`, so only the active block normally updates unless later parsing extends the same block.
 
 ```tsx
 <StreamingMarkdown
@@ -149,12 +149,12 @@ const result = parseIncremental("# Hello\n\nSome **bold** text");
 
 ## Streaming Behavior
 
-- **Completed blocks** render immediately and are frozen via `React.memo`
+- **Settled blocks** normally avoid re-rendering via `React.memo`
 - **Active block** re-renders as new characters arrive
 - **Code blocks** show as empty `<pre><code>` shells until the closing fence arrives
 - **Incomplete syntax** (e.g. unclosed `**`, `[`) is buffered and hidden until resolved
-- **List items** are held back during streaming until the next item or newline confirms they're complete
-- **Table rows** are held back until the row terminator arrives
+- **Partial list markers** (for example `-`, `1.`, `#`) are buffered until the line is confirmed
+- **Table headers and trailing rows** are buffered until the parser has enough complete lines to render them safely
 - **batchMs** debounces DOM updates to control render frequency (default: 16ms / ~60fps)
 
 ## Performance

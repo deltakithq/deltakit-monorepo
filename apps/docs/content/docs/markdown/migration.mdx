@@ -78,7 +78,7 @@ const components = {
 
 ### Features only @deltakit/markdown supports
 
-- Block-level `React.memo` — completed blocks never re-render
+- Block-level `React.memo` — settled blocks normally avoid re-rendering
 - Incomplete syntax buffering — no raw `**`, `` ` ``, or `[` visible during streaming
 - Code block skeleton rendering — pending code blocks show as empty shells, not broken paragraphs
 - Render batching via `batchMs` — debounce DOM updates at configurable frame rates
@@ -92,9 +92,9 @@ In benchmarks against react-markdown and micromark (the parser engine react-mark
 
 | Benchmark | Result |
 |-----------|--------|
-| Static render (short paragraph) | ~5.5x faster |
-| Static render (mixed content) | ~4.9x faster |
-| Streaming simulation (141 re-renders) | ~4.8x faster |
+| Static render (short paragraph) | ~7.0x faster |
+| Static render (mixed content) | ~6.6x faster |
+| Streaming simulation (141 re-renders) | ~4.7x faster |
 | Bundle size (minified + gzipped) | 3.8kb vs 35.3kb (9.3x smaller) |
 
 **Important caveats:**
