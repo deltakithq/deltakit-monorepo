@@ -67,6 +67,19 @@ function Chat() {
 
 The `useStreamChat` hook handles the entire streaming lifecycle. It sends the message to your API, parses the SSE stream, and updates `messages` in real time.
 
+If you need side-effects around that lifecycle, use `onStatusChange`:
+
+```tsx
+useStreamChat({
+  api: "/api/chat",
+  onStatusChange: (status, { reason, error }) => {
+    if (status === "starting") console.log("Started");
+    if (status === "stopped" && reason === "user") console.log("Stopped");
+    if (status === "error") console.error(error);
+  },
+});
+```
+
 ## What You Get Back
 
 ```tsx
@@ -84,4 +97,5 @@ const {
 
 - [useStreamChat](/docs/react/use-stream-chat): Full hook API reference
 - [EventHelpers](/docs/react/event-helpers): Helper methods for custom event handling
+- [useStreamChat lifecycle callbacks](/docs/react/use-stream-chat#onstatuschange): Track start, resume, stop, finish, and error transitions
 - [Custom Events](/docs/core/custom-events): Handle tool calls and beyond

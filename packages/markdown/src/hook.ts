@@ -102,7 +102,10 @@ export function useStreamingMarkdown(
 	const merged = useMemo(() => mergeComponents(components), [components]);
 
 	const result = useMemo(() => {
-		const parsed = parseIncremental(renderContent, { bufferIncomplete });
+		const parsed = parseIncremental(renderContent, {
+			bufferIncomplete,
+			relaxedOrderedListMarkers: true,
+		});
 		return parsed;
 	}, [renderContent, bufferIncomplete]);
 
@@ -227,28 +230,40 @@ function renderList(
 		return createElement(
 			Fragment,
 			{ key: `li-${index}` },
-			components.li({ children }),
+			components.li({
+				children,
+				value: block.listStyle === "ordered" ? item.value : undefined,
+			}),
 		);
 	});
 
 	const ListComponent =
 		block.listStyle === "ordered" ? components.ol : components.ul;
-	return ListComponent({ children: items });
+	return ListComponent({
+		children: items,
+		start: block.listStyle === "ordered" ? block.listStart : undefined,
+	});
 }
 
-function parseListItems(raw: string): Array<{ content: string }> {
+function parseListItems(
+	raw: string,
+): Array<{ content: string; value?: number }> {
 	const lines = raw.split("\n");
-	const items: Array<{ lines: string[] }> = [];
-	let currentItem: { lines: string[] } | null = null;
+	const items: Array<{ lines: string[]; value?: number }> = [];
+	let currentItem: { lines: string[]; value?: number } | null = null;
 
 	for (const line of lines) {
-		if (/^(?:[-*+]\s+|\d+\.(?!\d)\s+)/.test(line)) {
+		const orderedMatch = line.match(/^(\d+)(?:\.(?!\d))?\s+/);
+		if (/^[-*+]\s+/.test(line) || orderedMatch) {
 			if (currentItem) {
 				items.push(currentItem);
 			}
 
 			currentItem = {
-				lines: [line.replace(/^[-*+]\s+/, "").replace(/^\d+\.(?!\d)\s+/, "")],
+				lines: [
+					line.replace(/^[-*+]\s+/, "").replace(/^\d+(?:\.(?!\d))?\s+/, ""),
+				],
+				value: orderedMatch ? Number(orderedMatch[1]) : undefined,
 			};
 			continue;
 		}
@@ -263,7 +278,10 @@ function parseListItems(raw: string): Array<{ content: string }> {
 	}
 
 	return items
-		.map((item) => ({ content: normalizeListItemContent(item.lines) }))
+		.map((item) => ({
+			content: normalizeListItemContent(item.lines),
+			value: item.value,
+		}))
 		.filter((item) => item.content.trim().length > 0);
 }
 

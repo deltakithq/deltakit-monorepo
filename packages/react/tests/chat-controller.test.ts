@@ -14,6 +14,7 @@ function createMockOptions(
 		appendText: vi.fn(),
 		eventHandler: vi.fn(),
 		getMessages: vi.fn(() => []),
+		getRunId: vi.fn(() => null),
 		setError: vi.fn(),
 		setIsLoading: vi.fn(),
 		setMessages: vi.fn((updater) => {
@@ -116,7 +117,12 @@ describe("createChatTransportContext", () => {
 	describe("fail", () => {
 		it("sets error, calls onError, sets isLoading false, clears runId", () => {
 			const onError = vi.fn();
-			const opts = createMockOptions({ onError });
+			const onStatusChange = vi.fn();
+			const opts = createMockOptions({
+				getRunId: vi.fn(() => "run_123"),
+				onError,
+				onStatusChange,
+			});
 			const ctx = createChatTransportContext(opts);
 			const error = new Error("oops");
 
@@ -126,6 +132,11 @@ describe("createChatTransportContext", () => {
 			expect(onError).toHaveBeenCalledWith(error);
 			expect(opts.setIsLoading).toHaveBeenCalledWith(false);
 			expect(opts.setRunId).toHaveBeenCalledWith(null);
+			expect(onStatusChange).toHaveBeenCalledWith("error", {
+				error,
+				messages: [],
+				runId: "run_123",
+			});
 		});
 
 		it("works without onError callback", () => {
@@ -193,6 +204,30 @@ describe("createChatTransportContext", () => {
 
 			ctx.finish();
 			expect(onFinish).toHaveBeenCalledWith(messages);
+		});
+
+		it("emits finished status with final messages and run id", () => {
+			const messages = [
+				{
+					id: "1",
+					role: "user" as const,
+					parts: [{ type: "text" as const, text: "hi" }],
+				},
+				{ id: "2", role: "assistant" as const, parts: [] },
+			];
+			const onStatusChange = vi.fn();
+			const opts = createMockOptions({
+				getMessages: vi.fn(() => messages),
+				getRunId: vi.fn(() => "run_done"),
+				onStatusChange,
+			});
+			const ctx = createChatTransportContext(opts);
+
+			ctx.finish();
+			expect(onStatusChange).toHaveBeenCalledWith("finished", {
+				messages,
+				runId: "run_done",
+			});
 		});
 	});
 

@@ -126,6 +126,34 @@ describe("useStreamChat", () => {
 		expect(state.messages[1].role).toBe("assistant");
 	});
 
+	it("onStatusChange fires when a send starts", () => {
+		const onStatusChange = vi.fn();
+		const { transport } = createMockTransport();
+		const onRender = vi.fn();
+
+		render(
+			<HookHarness
+				options={{ transport, api: "/chat", onStatusChange }}
+				onRender={onRender}
+			/>,
+		);
+
+		act(() => {
+			onRender.mock.lastCall?.[0].sendMessage("hello");
+		});
+
+		expect(onStatusChange).toHaveBeenCalledWith(
+			"starting",
+			expect.objectContaining({
+				messages: expect.arrayContaining([
+					expect.objectContaining({ role: "user" }),
+					expect.objectContaining({ role: "assistant" }),
+				]),
+				runId: null,
+			}),
+		);
+	});
+
 	it("sendMessage while loading is no-op", () => {
 		const { transport } = createMockTransport();
 		const onRender = vi.fn();
@@ -169,6 +197,37 @@ describe("useStreamChat", () => {
 
 		expect(mockRun.stop).toHaveBeenCalled();
 		expect(onRender.mock.lastCall?.[0].isLoading).toBe(false);
+	});
+
+	it("onStatusChange fires when the user stops a run", () => {
+		const onStatusChange = vi.fn();
+		const { transport, mockRun } = createMockTransport();
+		mockRun.runId = "run_stop";
+		const onRender = vi.fn();
+
+		render(
+			<HookHarness
+				options={{ transport, api: "/chat", onStatusChange }}
+				onRender={onRender}
+			/>,
+		);
+
+		act(() => {
+			onRender.mock.lastCall?.[0].sendMessage("hello");
+		});
+
+		act(() => {
+			onRender.mock.lastCall?.[0].stop();
+		});
+
+		expect(onStatusChange).toHaveBeenCalledWith(
+			"stopped",
+			expect.objectContaining({
+				reason: "user",
+				runId: "run_stop",
+			}),
+		);
+		expect(onRender.mock.lastCall?.[0].runId).toBeNull();
 	});
 
 	it("context.emit with defaultOnEvent accumulates text_delta", () => {
@@ -226,6 +285,36 @@ describe("useStreamChat", () => {
 		expect(onFinish).toHaveBeenCalled();
 	});
 
+	it("onStatusChange fires when a run finishes", () => {
+		const onStatusChange = vi.fn();
+		const { transport, state, mockRun } = createMockTransport();
+		mockRun.runId = "run_finish";
+		const onRender = vi.fn();
+
+		render(
+			<HookHarness
+				options={{ transport, api: "/chat", onStatusChange }}
+				onRender={onRender}
+			/>,
+		);
+
+		act(() => {
+			onRender.mock.lastCall?.[0].sendMessage("hello");
+		});
+
+		act(() => {
+			state.capturedContext!.finish();
+		});
+
+		expect(onStatusChange).toHaveBeenCalledWith(
+			"finished",
+			expect.objectContaining({
+				runId: "run_finish",
+				messages: expect.any(Array),
+			}),
+		);
+	});
+
 	it("context.fail sets error and calls onError", () => {
 		const onError = vi.fn();
 		const { transport, state } = createMockTransport();
@@ -251,6 +340,37 @@ describe("useStreamChat", () => {
 		expect(onRender.mock.lastCall?.[0].error).toBe(error);
 		expect(onRender.mock.lastCall?.[0].isLoading).toBe(false);
 		expect(onError).toHaveBeenCalledWith(error);
+	});
+
+	it("onStatusChange fires when a run errors", () => {
+		const onStatusChange = vi.fn();
+		const { transport, state, mockRun } = createMockTransport();
+		mockRun.runId = "run_error";
+		const onRender = vi.fn();
+
+		render(
+			<HookHarness
+				options={{ transport, api: "/chat", onStatusChange }}
+				onRender={onRender}
+			/>,
+		);
+
+		act(() => {
+			onRender.mock.lastCall?.[0].sendMessage("hello");
+		});
+
+		const error = new Error("stream failed");
+		act(() => {
+			state.capturedContext!.fail(error);
+		});
+
+		expect(onStatusChange).toHaveBeenCalledWith(
+			"error",
+			expect.objectContaining({
+				error,
+				runId: "run_error",
+			}),
+		);
 	});
 
 	it("onMessage fires for user message on send", () => {
@@ -327,6 +447,7 @@ describe("useStreamChat", () => {
 	});
 
 	it("auto-resume triggers transport.resume when candidateRunId provided", () => {
+		const onStatusChange = vi.fn();
 		const { transport } = createMockTransport();
 		const resumeSpy = vi.spyOn(transport, "resume");
 		const onRender = vi.fn();
@@ -334,6 +455,7 @@ describe("useStreamChat", () => {
 		render(
 			<HookHarness
 				options={{
+					onStatusChange,
 					transport,
 					transportOptions: {
 						backgroundSSE: {
@@ -351,14 +473,23 @@ describe("useStreamChat", () => {
 			expect.objectContaining({ runId: "run_auto_resume" }),
 		);
 		expect(onRender.mock.lastCall?.[0].isLoading).toBe(true);
+		expect(onStatusChange).toHaveBeenCalledWith(
+			"resuming",
+			expect.objectContaining({ runId: "run_auto_resume" }),
+		);
 	});
 
 	it("cleanup calls run.close on unmount", () => {
+		const onStatusChange = vi.fn();
 		const { transport, mockRun } = createMockTransport();
+		mockRun.runId = "run_unmount";
 		const onRender = vi.fn();
 
 		const { unmount } = render(
-			<HookHarness options={{ transport, api: "/chat" }} onRender={onRender} />,
+			<HookHarness
+				options={{ transport, api: "/chat", onStatusChange }}
+				onRender={onRender}
+			/>,
 		);
 
 		act(() => {
@@ -367,5 +498,12 @@ describe("useStreamChat", () => {
 
 		unmount();
 		expect(mockRun.close).toHaveBeenCalled();
+		expect(onStatusChange).toHaveBeenCalledWith(
+			"stopped",
+			expect.objectContaining({
+				reason: "unmount",
+				runId: "run_unmount",
+			}),
+		);
 	});
 });

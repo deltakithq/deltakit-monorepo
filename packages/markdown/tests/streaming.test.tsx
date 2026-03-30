@@ -566,6 +566,63 @@ describe("streaming simulation", () => {
 			});
 		});
 
+		it("should not duplicate earlier blocks when a streaming table settles", () => {
+			const content = `### Reasoning
+
+\`\`\`text
+All 10 sessions were created successfully. Let me summarize for the user.
+\`\`\`
+
+Created 10 new sessions from tomorrow (March 31) through Saturday (April 4):
+
+| Date | 13:00 | 13:30 |
+|------|-------|-------|
+| Tue, Mar 31 | ✅ | ✅ |
+| Wed, Apr 1 | ✅ | ✅ |
+| Thu, Apr 2 | ✅ | ✅ |
+| Fri, Apr 3 | ✅ | ✅ |
+| Sat, Apr 4 | ✅ | ✅ |
+
+All sessions are unbooked and assigned to mentor Indra Zulfi.`;
+			const beforeTableSettles = content.slice(
+				0,
+				content.indexOf("| Date |") + 20,
+			);
+			const midTable = content.slice(0, content.indexOf("| Wed, Apr 1 |") + 10);
+			const { container, rerender } = render(
+				createElement(StreamingMarkdown, {
+					content: beforeTableSettles,
+					batchMs: 0,
+				}),
+			);
+
+			rerender(
+				createElement(StreamingMarkdown, {
+					content: midTable,
+					batchMs: 0,
+				}),
+			);
+
+			rerender(
+				createElement(StreamingMarkdown, {
+					content,
+					batchMs: 0,
+				}),
+			);
+
+			expect(container.querySelectorAll("table")).toHaveLength(1);
+			expect(
+				container.textContent?.match(
+					/Created 10 new sessions from tomorrow \(March 31\) through Saturday \(April 4\):/g,
+				)?.length ?? 0,
+			).toBe(1);
+			expect(
+				container.textContent?.match(
+					/All sessions are unbooked and assigned to mentor Indra Zulfi\./g,
+				)?.length ?? 0,
+			).toBe(1);
+		});
+
 		it("should render image skeleton first, then reveal image once loaded", async () => {
 			const restore = installMockImage(() => "load");
 			try {

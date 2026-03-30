@@ -6,6 +6,8 @@ import type {
 	DefaultComponentProps,
 	ImageComponentProps,
 	LinkComponentProps,
+	ListComponentProps,
+	ListItemComponentProps,
 } from "../core/types.js";
 
 function DefaultParagraph({ children }: DefaultComponentProps): ReactNode {
@@ -67,12 +69,12 @@ function DefaultUl({ children }: DefaultComponentProps): ReactNode {
 	return createElement("ul", null, children);
 }
 
-function DefaultOl({ children }: DefaultComponentProps): ReactNode {
-	return createElement("ol", null, children);
+function DefaultOl({ children, start }: ListComponentProps): ReactNode {
+	return createElement("ol", start !== undefined ? { start } : null, children);
 }
 
-function DefaultLi({ children }: DefaultComponentProps): ReactNode {
-	return createElement("li", null, children);
+function DefaultLi({ children, value }: ListItemComponentProps): ReactNode {
+	return createElement("li", value !== undefined ? { value } : null, children);
 }
 
 function DefaultLink({ href, children }: LinkComponentProps): ReactNode {

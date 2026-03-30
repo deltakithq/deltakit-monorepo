@@ -172,6 +172,34 @@ describe("block rendering", () => {
 			const topLevelItems = ol.querySelectorAll(":scope > li");
 			expect(topLevelItems.length).toBe(4);
 		});
+
+		it("preserves ordered item values for streaming-friendly bare markers", () => {
+			const content =
+				"1 `69c5b9fde876c1033d352063` - User 971 - https://github.com/rahmanazizf/nutrisearch\n\n2. `69c2ca94e876c1034361d32b` - User 535 - https://github.com/kraken-af/python-batch-iii-asignment-5\n3. `69b8e88be876c1135ea3d513` - User 961 - https://github.com/grarizki/assignment-5-agent-streaming\n\n5 `69b68615e876c1134b04e696` - User 964 - https://github.com/ghiffariarwandani/fastapi-agent\n\n6. `69b3bec0e876c1135d96209` - User 831 - https://github.com/Fraankky/fastapi-agentic-analyst-company\n\n";
+			const { container } = renderMarkdown(content);
+			const ol = container.querySelector("ol") as HTMLOListElement | null;
+			expect(ol).toBeTruthy();
+			expect(ol?.start).toBe(1);
+			const topLevelItems = Array.from(
+				ol?.querySelectorAll(":scope > li") ?? [],
+			) as HTMLLIElement[];
+			expect(topLevelItems.map((item) => item.value)).toEqual([1, 2, 3, 5, 6]);
+		});
+
+		it("keeps ordered numbering across blank lines before 10 and 14", () => {
+			const content =
+				"9. ID: 69ae0993e876c10e6240a2fb - User ID: 976 - https://github.com/ardhi21/agentic-workflow\n\n\n10. ID: 69ad6869e876c10e6367e0e3 - User ID: 605 - https://github.com/martjellino/agentic-spec-generator\n11. ID: 69ad46fce876c10e645aceda - User ID: 520 - https://github.com/HendraaaIrwn/Agentic-workflow-Job-interview\n12. ID: 69aaed91e876c10e6367e0e1 - User ID: 959 - https://github.com/imamst/agentic-workflow-practice\n13. ID: 69aa68b4e876c10e6240a2f7 - User ID: 904 - https://github.com/agateknik/bootcamp_ai_enabled_python_web_development/tree/main/assignment_materials/04.agentic_workflow\n\n\n14. ID: 69aa5360e876c10e6240a2f6 - User ID: 964 - https://github.com/ghiffariarwandani/agentic-basic\n15. ID: 69a9bce9e876c10e6367e0df - User ID: 954 - https://github.com/davadinata/trip-planner\n\n";
+			const { container } = renderMarkdown(content);
+			const ol = container.querySelector("ol") as HTMLOListElement | null;
+			expect(ol).toBeTruthy();
+			expect(ol?.start).toBe(9);
+			const topLevelItems = Array.from(
+				ol?.querySelectorAll(":scope > li") ?? [],
+			) as HTMLLIElement[];
+			expect(topLevelItems.map((item) => item.value)).toEqual([
+				9, 10, 11, 12, 13, 14, 15,
+			]);
+		});
 	});
 
 	describe("table", () => {

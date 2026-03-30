@@ -5,6 +5,8 @@ import { resolveTransport } from "./transports";
 import type {
 	ChatTransportRun,
 	EventHelpers,
+	StreamStatus,
+	StreamStatusContext,
 	UseStreamChatOptions,
 	UseStreamChatReturn,
 } from "./types";
@@ -33,7 +35,14 @@ export function useStreamChat<
 	TPart extends { type: string } = ContentPart,
 	TEvent extends { type: string } = SSEEvent,
 >(options: UseStreamChatOptions<TPart, TEvent>): UseStreamChatReturn<TPart> {
-	const { initialMessages, onEvent, onMessage, onError, onFinish } = options;
+	const {
+		initialMessages,
+		onEvent,
+		onMessage,
+		onError,
+		onFinish,
+		onStatusChange,
+	} = options;
 
 	const [messages, setMessages] = useState(initialMessages ?? []);
 	const [isLoading, setIsLoading] = useState(false);
@@ -54,6 +63,9 @@ export function useStreamChat<
 	// closures.
 	const messagesRef = useRef(messages);
 	messagesRef.current = messages;
+
+	const runIdRef = useRef(runId);
+	runIdRef.current = runId;
 
 	// Keep transport options in a ref so that callbacks always read the
 	// latest values without causing memoisation instability.
@@ -130,6 +142,31 @@ export function useStreamChat<
 	const onMessageRef = useRef(onMessage);
 	onMessageRef.current = onMessage;
 
+	const onStatusChangeRef = useRef(onStatusChange);
+	onStatusChangeRef.current = onStatusChange;
+
+	const setRunIdWithSideEffects = useCallback((next: string | null) => {
+		runIdRef.current = next;
+		setRunId(next);
+		transportOptionsRef.current?.backgroundSSE?.onRunIdChange?.(next);
+		transportOptionsRef.current?.websocket?.onRunIdChange?.(next);
+	}, []);
+
+	const emitStatus = useCallback(
+		(
+			status: StreamStatus,
+			overrides?: Partial<StreamStatusContext<TPart>>,
+		): void => {
+			onStatusChangeRef.current?.(status, {
+				messages: overrides?.messages ?? messagesRef.current,
+				runId: overrides?.runId ?? runIdRef.current,
+				...(overrides?.error ? { error: overrides.error } : {}),
+				...(overrides?.reason ? { reason: overrides.reason } : {}),
+			});
+		},
+		[],
+	);
+
 	const transportContext = useMemo(
 		() =>
 			createChatTransportContext({
@@ -138,19 +175,17 @@ export function useStreamChat<
 				eventHandler: (event: TEvent, helpers: EventHelpers<TPart>) =>
 					eventHandlerRef.current(event, helpers),
 				getMessages: () => messagesRef.current,
+				getRunId: () => runIdRef.current,
 				onError: (...args) => onErrorRef.current?.(...args),
 				onFinish: (...args) => onFinishRef.current?.(...args),
 				onMessage: (...args) => onMessageRef.current?.(...args),
+				onStatusChange: (...args) => onStatusChangeRef.current?.(...args),
 				setError,
 				setIsLoading,
 				setMessages,
-				setRunId: (next) => {
-					setRunId(next);
-					transportOptionsRef.current?.backgroundSSE?.onRunIdChange?.(next);
-					transportOptionsRef.current?.websocket?.onRunIdChange?.(next);
-				},
+				setRunId: setRunIdWithSideEffects,
 			}),
-		[appendPart, appendText],
+		[appendPart, appendText, setRunIdWithSideEffects],
 	);
 
 	const stop = useCallback(() => {
@@ -159,11 +194,17 @@ export function useStreamChat<
 			return;
 		}
 
+		const activeRunId = activeRun.runId ?? runIdRef.current;
 		manuallyStoppedRef.current = true;
 		void activeRun.stop();
 		runRef.current = null;
 		setIsLoading(false);
-	}, []);
+		setRunIdWithSideEffects(null);
+		emitStatus("stopped", {
+			reason: "user",
+			runId: activeRunId,
+		});
+	}, [emitStatus, setRunIdWithSideEffects]);
 
 	const sendMessage = useCallback(
 		(text: string) => {
@@ -175,16 +216,22 @@ export function useStreamChat<
 				{ type: "text", text } as unknown as TPart,
 			]);
 			const assistantMessage = createMessage<TPart>("assistant", []);
+			const nextMessages = [
+				...messagesRef.current,
+				userMessage,
+				assistantMessage,
+			];
 
-			setMessages((prev) => {
-				const next = [...prev, userMessage, assistantMessage];
-				messagesRef.current = next;
-				return next;
-			});
+			messagesRef.current = nextMessages;
+			setMessages(nextMessages);
 
-			onMessage?.(userMessage);
+			onMessageRef.current?.(userMessage);
 			setError(null);
 			setIsLoading(true);
+			emitStatus("starting", {
+				messages: nextMessages,
+				runId: null,
+			});
 
 			// Reset the resume guard so a future resume for a new run is allowed.
 			resumedRunIdRef.current = null;
@@ -193,10 +240,16 @@ export function useStreamChat<
 			const run = transport.start({ context: transportContext, message: text });
 			runRef.current = run ?? null;
 			if (run?.runId) {
-				setRunId(run.runId);
+				setRunIdWithSideEffects(run.runId);
 			}
 		},
-		[isLoading, onMessage, transport, transportContext],
+		[
+			emitStatus,
+			isLoading,
+			setRunIdWithSideEffects,
+			transport,
+			transportContext,
+		],
 	);
 
 	// -----------------------------------------------------------------------
@@ -242,20 +295,33 @@ export function useStreamChat<
 
 		setError(null);
 		setIsLoading(true);
+		emitStatus("resuming", { runId: candidateRunId });
 		const run = transport.resume({
 			context: transportContext,
 			runId: candidateRunId,
 		});
 		runRef.current = run ?? null;
-		setRunId(candidateRunId);
-	}, [candidateRunId, transport, transportContext]);
+		setRunIdWithSideEffects(candidateRunId);
+	}, [
+		candidateRunId,
+		emitStatus,
+		setRunIdWithSideEffects,
+		transport,
+		transportContext,
+	]);
 
 	useEffect(() => {
 		return () => {
+			if (runRef.current) {
+				emitStatus("stopped", {
+					reason: "unmount",
+					runId: runIdRef.current,
+				});
+			}
 			void runRef.current?.close?.();
 			runRef.current = null;
 		};
-	}, []);
+	}, [emitStatus]);
 
 	const prevIsLoadingRef = useRef(isLoading);
 	useEffect(() => {
