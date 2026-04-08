@@ -7,6 +7,7 @@ export type {
 	StreamStatus,
 	StreamStatusContext,
 	StreamStatusReason,
+	UseStreamChatDebounceOptions,
 	UseStreamChatOptions,
 	UseStreamChatReturn,
 } from "./stream";

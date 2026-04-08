@@ -24,6 +24,12 @@ export interface StreamStatusContext<
 	reason?: StreamStatusReason;
 }
 
+export interface UseStreamChatDebounceOptions {
+	// Counts incoming appendText/text_delta calls, which often map to
+	// streamed token boundaries depending on the transport/backend.
+	tokens: number;
+}
+
 export interface UseStreamChatOptions<
 	TPart extends { type: string } = ContentPart,
 	TEvent extends { type: string } = SSEEvent,
@@ -38,6 +44,7 @@ export interface UseStreamChatOptions<
 	initialMessages?: Message<TPart>[];
 	headers?: Record<string, string>;
 	body?: Record<string, unknown>;
+	debounced?: UseStreamChatDebounceOptions;
 	onEvent?: (event: TEvent, helpers: EventHelpers<TPart>) => void;
 	onFinish?: (messages: Message<TPart>[]) => void;
 	onMessage?: (message: Message<TPart>) => void;

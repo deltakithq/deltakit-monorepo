@@ -9,10 +9,11 @@ const DEFAULT_THRESHOLD = 50;
 
 /**
  * Fraction of remaining distance covered each frame.
- * 0.5 at 60 fps closes ~97 % of a gap within ≈ 100 ms — responsive enough
- * to keep up with fast-growing lists/code blocks, while still looking smooth.
+ * We scale this up for larger gaps so debounced/batched content flushes do
+ * not leave the viewport visibly chasing the bottom for too long.
  */
-const LERP_FACTOR = 0.5;
+const MIN_LERP_FACTOR = 0.5;
+const MAX_LERP_FACTOR = 0.82;
 
 /**
  * After the lerp finishes, keep the scroll-event guard active for this
@@ -21,6 +22,15 @@ const LERP_FACTOR = 0.5;
  * to falsely disengage auto-scroll.
  */
 const SCROLL_COOLDOWN_MS = 150;
+
+function getLerpFactor(distance: number, clientHeight: number): number {
+	const safeClientHeight = Math.max(clientHeight, 1);
+	const normalizedDistance = Math.min(distance / safeClientHeight, 1);
+
+	return (
+		MIN_LERP_FACTOR + (MAX_LERP_FACTOR - MIN_LERP_FACTOR) * normalizedDistance
+	);
+}
 
 // ---------------------------------------------------------------------------
 // useAutoScroll
@@ -39,6 +49,8 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 	const ref = useRef<T | null>(null);
 	const isAtBottomRef = useRef(true);
 	const [isAtBottom, setIsAtBottom] = useState(true);
+	const lastScrollTopRef = useRef(0);
+	const userDetachedRef = useRef(false);
 
 	const rafRef = useRef<number | null>(null);
 
@@ -49,6 +61,7 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 	const cooldownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const disengageAutoScroll = useCallback(() => {
+		userDetachedRef.current = true;
 		isAtBottomRef.current = false;
 		setIsAtBottom(false);
 
@@ -98,7 +111,10 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 
 			if (distance <= 0.5) {
 				// Close enough — snap and stop.
-				if (distance > 0) el.scrollTop = target;
+				if (distance > 0) {
+					el.scrollTop = target;
+					lastScrollTopRef.current = target;
+				}
 				rafRef.current = null;
 
 				// Keep the guard active for a short cooldown so scroll
@@ -111,10 +127,12 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 			}
 
 			isAutoScrollingRef.current = true;
+			const lerpFactor = getLerpFactor(distance, el.clientHeight);
 
 			// Math.ceil guarantees at least 1 px per frame so we always
 			// converge and never stall.
-			el.scrollTop = el.scrollTop + Math.ceil(distance * LERP_FACTOR);
+			el.scrollTop = el.scrollTop + Math.ceil(distance * lerpFactor);
+			lastScrollTopRef.current = el.scrollTop;
 			rafRef.current = requestAnimationFrame(tick);
 		};
 
@@ -131,6 +149,20 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 		if (!el || !enabled) return;
 
 		const handleScroll = () => {
+			const nextScrollTop = el.scrollTop;
+			const wasMovingUp = nextScrollTop < lastScrollTopRef.current;
+			const wasMovingDown = nextScrollTop > lastScrollTopRef.current;
+			lastScrollTopRef.current = nextScrollTop;
+
+			// A manual upward scroll can arrive as a plain `scroll` event
+			// (for example via scrollbar drag or touch interactions) while our
+			// programmatic pinning is active. Detect that direction change and
+			// detach immediately instead of waiting for the cooldown to expire.
+			if (isAutoScrollingRef.current && wasMovingUp) {
+				disengageAutoScroll();
+				return;
+			}
+
 			// Ignore scroll events fired by (or shortly after) our own
 			// programmatic scrolling — without this guard, fast-growing
 			// content can push the measured distance past the threshold
@@ -139,6 +171,19 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 
 			const atBottom =
 				el.scrollHeight - el.scrollTop - el.clientHeight <= threshold;
+
+			// Preserve deliberate upward detachment even if the user is still
+			// near the bottom threshold. Re-pin only after they move back down.
+			if (userDetachedRef.current) {
+				if (!atBottom || !wasMovingDown) {
+					isAtBottomRef.current = false;
+					setIsAtBottom((prev) => (prev === false ? prev : false));
+					return;
+				}
+
+				userDetachedRef.current = false;
+			}
+
 			isAtBottomRef.current = atBottom;
 			setIsAtBottom((prev) => (prev === atBottom ? prev : atBottom));
 		};
@@ -233,7 +278,10 @@ export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
 		const el = ref.current;
 		if (!el) return;
 
+		const target = el.scrollHeight - el.clientHeight;
 		isAtBottomRef.current = true;
+		userDetachedRef.current = false;
+		lastScrollTopRef.current = target;
 		isAutoScrollingRef.current = false;
 		if (cooldownRef.current != null) {
 			clearTimeout(cooldownRef.current);

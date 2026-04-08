@@ -181,6 +181,36 @@ describe("useAutoScroll", () => {
 		vi.unstubAllGlobals();
 	});
 
+	it("catches up quickly when content grows in a large batch", () => {
+		vi.useFakeTimers();
+		const { mutationObservers } = setupObservers();
+
+		const onRender = vi.fn();
+		const view = render(
+			<HookHarness deps={[[{ id: 1 }]]} onRender={onRender} />,
+		);
+		const el = view.container.firstElementChild as HTMLDivElement;
+		attachScrollableMetrics(el);
+
+		act(() => {
+			el.scrollHeight = 1600;
+			view.rerender(
+				<HookHarness deps={[[{ id: 1 }, { id: 2 }]]} onRender={onRender} />,
+			);
+			mutationObservers[0]?.trigger();
+		});
+
+		const initialDistance = 1200 - 600;
+		advanceFrame();
+
+		const remainingDistanceAfterOneFrame = 1200 - el.scrollTop;
+		expect(remainingDistanceAfterOneFrame).toBeLessThan(initialDistance / 3);
+		expect(el.scrollTop).toBeLessThan(1200);
+
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+	});
+
 	it("does not disengage when scroll events fire shortly after lerp ends", () => {
 		vi.useFakeTimers();
 		const { mutationObservers } = setupObservers();
@@ -313,6 +343,87 @@ describe("useAutoScroll", () => {
 		advanceLerpToTarget(el, 1800);
 
 		expect(el.scrollTop).toBe(scrollTopBeforeWheel);
+
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+	});
+
+	it("stays detached after a slight upward wheel until the user scrolls back down", () => {
+		vi.useFakeTimers();
+		setupObservers();
+
+		const onRender = vi.fn();
+		const view = render(
+			<HookHarness deps={[[{ id: 1 }]]} onRender={onRender} />,
+		);
+		const el = view.container.firstElementChild as HTMLDivElement;
+		attachScrollableMetrics(el);
+
+		act(() => {
+			el.dispatchEvent(new Event("scroll"));
+		});
+
+		act(() => {
+			el.dispatchEvent(
+				new WheelEvent("wheel", {
+					deltaY: -20,
+				}),
+			);
+			el.scrollTop = 565;
+			el.dispatchEvent(new Event("scroll"));
+		});
+
+		expect(onRender.mock.lastCall?.[0].isAtBottom).toBe(false);
+
+		act(() => {
+			el.scrollTop = 590;
+			el.dispatchEvent(new Event("scroll"));
+		});
+
+		expect(onRender.mock.lastCall?.[0].isAtBottom).toBe(true);
+
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+	});
+
+	it("disengages on upward scroll events during active auto-scroll without wheel input", () => {
+		vi.useFakeTimers();
+		const { mutationObservers } = setupObservers();
+
+		const onRender = vi.fn();
+		const view = render(
+			<HookHarness deps={[[{ id: 1 }]]} onRender={onRender} />,
+		);
+		const el = view.container.firstElementChild as HTMLDivElement;
+		attachScrollableMetrics(el);
+
+		act(() => {
+			el.dispatchEvent(new Event("scroll"));
+			el.scrollHeight = 1800;
+			view.rerender(
+				<HookHarness deps={[[{ id: 1 }, { id: 2 }]]} onRender={onRender} />,
+			);
+			mutationObservers[0]?.trigger();
+		});
+
+		advanceFrame();
+		const scrollTopDuringAutoScroll = el.scrollTop;
+		expect(scrollTopDuringAutoScroll).toBeGreaterThan(600);
+
+		act(() => {
+			el.scrollTop = scrollTopDuringAutoScroll - 80;
+			el.dispatchEvent(new Event("scroll"));
+		});
+
+		expect(onRender.mock.lastCall?.[0].isAtBottom).toBe(false);
+
+		act(() => {
+			el.scrollHeight = 2200;
+			mutationObservers[0]?.trigger();
+		});
+		advanceLerpToTarget(el, 1800);
+
+		expect(el.scrollTop).toBe(scrollTopDuringAutoScroll - 80);
 
 		vi.useRealTimers();
 		vi.unstubAllGlobals();

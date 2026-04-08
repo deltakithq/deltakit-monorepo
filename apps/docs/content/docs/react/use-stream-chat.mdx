@@ -129,6 +129,21 @@ useStreamChat({
 // POST body: { message: "...", model: "gpt-4", temperature: 0.7, sessionId: "abc123" }
 ```
 
+### `debounced`
+
+**Type:** `{ tokens: number }`
+
+Buffers streamed `appendText` / `text_delta` updates and flushes them after the given number of incoming text chunks. This is useful when your backend emits very small deltas and you want fewer React re-renders while preserving the final message.
+
+```ts
+useStreamChat({
+  api: "/api/chat",
+  debounced: { tokens: 8 },
+});
+```
+
+`debounced.tokens` counts incoming text-delta calls, which often map closely to streamed tokens depending on your backend. Any buffered text is always flushed before `finish`, `error`, `stop()`, or before a non-text part is appended.
+
 ### `onEvent`
 
 **Type:** `(event: TEvent, helpers: EventHelpers<TPart>) => void`

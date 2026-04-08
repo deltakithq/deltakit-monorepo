@@ -31,6 +31,7 @@ export type {
 	TransportOptions,
 	UseAutoScrollOptions,
 	UseAutoScrollReturn,
+	UseStreamChatDebounceOptions,
 	UseStreamChatOptions,
 	UseStreamChatReturn,
 	WebSocketTransportOptions,

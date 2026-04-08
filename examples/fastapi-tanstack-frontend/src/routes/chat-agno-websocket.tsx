@@ -307,7 +307,7 @@ function ChatAgnoWebSocket() {
 		}
 	}, [loaderRunId]);
 
-	const { ref, scrollToBottom, isAtBottom } = useAutoScroll([messages]);
+	const { ref, scrollToBottom } = useAutoScroll([messages]);
 
 	const clearChat = async () => {
 		await fetch(`${API_URL}clear`, { method: "POST" });
@@ -408,18 +408,6 @@ function ChatAgnoWebSocket() {
 					</div>
 				</div>
 			</div>
-
-			{!isAtBottom && (
-				<div className="flex justify-center py-1">
-					<button
-						type="button"
-						onClick={scrollToBottom}
-						className="rounded-full bg-neutral-800 px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-700"
-					>
-						Scroll to bottom
-					</button>
-				</div>
-			)}
 
 			<div className="border-t border-neutral-800 bg-neutral-900">
 				<div className="mx-auto max-w-2xl p-4">

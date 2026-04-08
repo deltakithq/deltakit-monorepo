@@ -260,6 +260,104 @@ describe("useStreamChat", () => {
 		expect(assistantMsg.parts[0].text).toBe("hi there");
 	});
 
+	it("debounced buffers text_delta events until the token threshold is reached", () => {
+		const { transport, state } = createMockTransport();
+		const onRender = vi.fn();
+
+		render(
+			<HookHarness
+				options={{ transport, api: "/chat", debounced: { tokens: 3 } }}
+				onRender={onRender}
+			/>,
+		);
+
+		act(() => {
+			onRender.mock.lastCall?.[0].sendMessage("hello");
+		});
+
+		const context = requireContext(state.capturedContext);
+		act(() => {
+			context.emit({ type: "text_delta", delta: "a" });
+			context.emit({ type: "text_delta", delta: "b" });
+		});
+
+		let msgs = onRender.mock.lastCall?.[0].messages;
+		let assistantMsg = msgs[msgs.length - 1];
+		expect(assistantMsg.parts).toEqual([]);
+
+		act(() => {
+			context.emit({ type: "text_delta", delta: "c" });
+		});
+
+		msgs = onRender.mock.lastCall?.[0].messages;
+		assistantMsg = msgs[msgs.length - 1];
+		expect(assistantMsg.parts[0].text).toBe("abc");
+	});
+
+	it("debounced flushes buffered text before finish", () => {
+		const onFinish = vi.fn();
+		const { transport, state } = createMockTransport();
+		const onRender = vi.fn();
+
+		render(
+			<HookHarness
+				options={{
+					transport,
+					api: "/chat",
+					debounced: { tokens: 3 },
+					onFinish,
+				}}
+				onRender={onRender}
+			/>,
+		);
+
+		act(() => {
+			onRender.mock.lastCall?.[0].sendMessage("hello");
+		});
+
+		const context = requireContext(state.capturedContext);
+		act(() => {
+			context.emit({ type: "text_delta", delta: "a" });
+			context.emit({ type: "text_delta", delta: "b" });
+			context.finish();
+		});
+
+		const msgs = onRender.mock.lastCall?.[0].messages;
+		const assistantMsg = msgs[msgs.length - 1];
+		expect(assistantMsg.parts[0].text).toBe("ab");
+		expect(onFinish).toHaveBeenCalledWith(msgs);
+	});
+
+	it("debounced flushes buffered text before stop", () => {
+		const { transport, state } = createMockTransport();
+		const onRender = vi.fn();
+
+		render(
+			<HookHarness
+				options={{ transport, api: "/chat", debounced: { tokens: 3 } }}
+				onRender={onRender}
+			/>,
+		);
+
+		act(() => {
+			onRender.mock.lastCall?.[0].sendMessage("hello");
+		});
+
+		const context = requireContext(state.capturedContext);
+		act(() => {
+			context.emit({ type: "text_delta", delta: "a" });
+			context.emit({ type: "text_delta", delta: "b" });
+		});
+
+		act(() => {
+			onRender.mock.lastCall?.[0].stop();
+		});
+
+		const msgs = onRender.mock.lastCall?.[0].messages;
+		const assistantMsg = msgs[msgs.length - 1];
+		expect(assistantMsg.parts[0].text).toBe("ab");
+	});
+
 	it("context.finish sets isLoading false and calls onFinish", () => {
 		const onFinish = vi.fn();
 		const { transport, state } = createMockTransport();
@@ -303,7 +401,7 @@ describe("useStreamChat", () => {
 		});
 
 		act(() => {
-			state.capturedContext!.finish();
+			state.capturedContext?.finish();
 		});
 
 		expect(onStatusChange).toHaveBeenCalledWith(
@@ -361,7 +459,7 @@ describe("useStreamChat", () => {
 
 		const error = new Error("stream failed");
 		act(() => {
-			state.capturedContext!.fail(error);
+			state.capturedContext?.fail(error);
 		});
 
 		expect(onStatusChange).toHaveBeenCalledWith(
