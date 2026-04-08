@@ -248,8 +248,8 @@ importers:
   packages/react:
     dependencies:
       '@deltakit/core':
-        specifier: ^0.2.0
-        version: 0.2.0
+        specifier: workspace:^0.3.0
+        version: link:../core
     devDependencies:
       '@testing-library/react':
         specifier: ^16.3.0
@@ -631,9 +631,6 @@ packages:
   '@csstools/css-tokenizer@4.0.0':
     resolution: {integrity: sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA==}
     engines: {node: '>=20.19.0'}
-
-  '@deltakit/core@0.2.0':
-    resolution: {integrity: sha512-7Opt94VuO43KWVUFSa4rSZTuEu2kbXZ3kynlzs2RRTQ2fWO2a9xF8zHpe+AvSQi7T/gSye4NL/gmKkzJS7/nnQ==}
 
   '@emnapi/runtime@1.8.1':
     resolution: {integrity: sha512-mehfKSMWjjNol8659Z8KxEMrdSJDDot5SXMq00dM8BN4o+CLNXQ0xH2V7EchNHV4RmbZLmmPdEaXZc5H2FXmDg==}
@@ -4836,8 +4833,6 @@ snapshots:
   '@csstools/css-tokenizer@3.0.4': {}
 
   '@csstools/css-tokenizer@4.0.0': {}
-
-  '@deltakit/core@0.2.0': {}
 
   '@emnapi/runtime@1.8.1':
     dependencies:

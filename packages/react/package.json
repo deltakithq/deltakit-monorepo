@@ -38,7 +38,7 @@
 		"clean": "rm -rf dist"
 	},
 	"dependencies": {
-		"@deltakit/core": "^0.3.0"
+		"@deltakit/core": "workspace:^0.3.0"
 	},
 	"devDependencies": {
 		"@testing-library/react": "^16.3.0",
