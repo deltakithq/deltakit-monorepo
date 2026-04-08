@@ -1,7 +1,11 @@
-import type { ContentPart, SSEEvent } from "@deltakit/core";
+import type { ContentPart, Message, SSEEvent } from "@deltakit/core";
+import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createChatTransportContext, createMessage } from "./chat-controller";
-import { resolveTransport } from "./transports";
+import {
+	createChatTransportContext,
+	createMessage,
+} from "../internal/chat-controller";
+import { resolveTransport } from "../internal/transports";
 import type {
 	ChatTransportRun,
 	EventHelpers,
@@ -9,23 +13,13 @@ import type {
 	StreamStatusContext,
 	UseStreamChatOptions,
 	UseStreamChatReturn,
-} from "./types";
-
-// ---------------------------------------------------------------------------
-// Default event handler — accumulates `text_delta` into the last
-// assistant message's parts.
-// ---------------------------------------------------------------------------
-
-function defaultOnEvent(
-	event: SSEEvent,
-	helpers: EventHelpers<ContentPart>,
-): void {
-	if (event.type === "text_delta") {
-		helpers.appendText(event.delta);
-	}
-	// Other event types (e.g. tool_call) are silently ignored by default.
-	// Users can provide their own `onEvent` to handle them.
-}
+} from "../types";
+import {
+	appendPartToMessages,
+	appendTextToMessages,
+	defaultOnEvent,
+	getCandidateRunId,
+} from "./use-stream-chat/index";
 
 // ---------------------------------------------------------------------------
 // useStreamChat
@@ -36,6 +30,7 @@ export function useStreamChat<
 	TEvent extends { type: string } = SSEEvent,
 >(options: UseStreamChatOptions<TPart, TEvent>): UseStreamChatReturn<TPart> {
 	const {
+		debounced,
 		initialMessages,
 		onEvent,
 		onMessage,
@@ -44,7 +39,7 @@ export function useStreamChat<
 		onStatusChange,
 	} = options;
 
-	const [messages, setMessages] = useState(initialMessages ?? []);
+	const [messages, setMessagesState] = useState(initialMessages ?? []);
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
 	const [runId, setRunId] = useState<string | null>(null);
@@ -64,6 +59,20 @@ export function useStreamChat<
 	const messagesRef = useRef(messages);
 	messagesRef.current = messages;
 
+	const setMessages = useCallback<Dispatch<SetStateAction<Message<TPart>[]>>>(
+		(next) => {
+			const resolved =
+				typeof next === "function"
+					? (next as (prev: Message<TPart>[]) => Message<TPart>[])(
+							messagesRef.current,
+						)
+					: next;
+			messagesRef.current = resolved;
+			setMessagesState(resolved);
+		},
+		[],
+	);
+
 	const runIdRef = useRef(runId);
 	runIdRef.current = runId;
 
@@ -72,42 +81,52 @@ export function useStreamChat<
 	const transportOptionsRef = useRef(options.transportOptions);
 	transportOptionsRef.current = options.transportOptions;
 
-	const appendText = useCallback((delta: string) => {
-		setMessages((prev) => {
-			const last = prev[prev.length - 1];
-			if (!last || last.role !== "assistant") return prev;
+	const debouncedTokenThreshold = debounced?.tokens ?? 0;
+	const bufferedTextRef = useRef("");
+	const bufferedTokenCountRef = useRef(0);
 
-			const parts = [...last.parts];
-			const lastPart = parts[parts.length - 1];
+	const appendTextNow = useCallback(
+		(delta: string) => {
+			setMessages((prev) => appendTextToMessages(prev, delta));
+		},
+		[setMessages],
+	);
 
-			if (lastPart && lastPart.type === "text" && "text" in lastPart) {
-				const textPart = lastPart as { type: "text"; text: string };
-				parts[parts.length - 1] = {
-					...lastPart,
-					text: textPart.text + delta,
-				} as unknown as TPart;
-			} else {
-				parts.push({ type: "text", text: delta } as unknown as TPart);
+	const flushBufferedText = useCallback(() => {
+		if (!bufferedTextRef.current) {
+			return;
+		}
+
+		const delta = bufferedTextRef.current;
+		bufferedTextRef.current = "";
+		bufferedTokenCountRef.current = 0;
+		appendTextNow(delta);
+	}, [appendTextNow]);
+
+	const appendText = useCallback(
+		(delta: string) => {
+			if (debouncedTokenThreshold <= 1) {
+				appendTextNow(delta);
+				return;
 			}
 
-			return [...prev.slice(0, -1), { ...last, parts }];
-		});
-	}, []);
+			bufferedTextRef.current += delta;
+			bufferedTokenCountRef.current += 1;
 
-	const appendPart = useCallback((part: TPart) => {
-		setMessages((prev) => {
-			const last = prev[prev.length - 1];
-			if (!last || last.role !== "assistant") return prev;
+			if (bufferedTokenCountRef.current >= debouncedTokenThreshold) {
+				flushBufferedText();
+			}
+		},
+		[appendTextNow, debouncedTokenThreshold, flushBufferedText],
+	);
 
-			return [
-				...prev.slice(0, -1),
-				{
-					...last,
-					parts: [...last.parts, part],
-				},
-			];
-		});
-	}, []);
+	const appendPart = useCallback(
+		(part: TPart) => {
+			flushBufferedText();
+			setMessages((prev) => appendPartToMessages(prev, part));
+		},
+		[flushBufferedText, setMessages],
+	);
 
 	// Stabilise transport creation: resolve once and store in a ref so that
 	// changing values like `runId` in transportOptions won't cause a new
@@ -174,6 +193,7 @@ export function useStreamChat<
 				appendText,
 				eventHandler: (event: TEvent, helpers: EventHelpers<TPart>) =>
 					eventHandlerRef.current(event, helpers),
+				flushText: flushBufferedText,
 				getMessages: () => messagesRef.current,
 				getRunId: () => runIdRef.current,
 				onError: (...args) => onErrorRef.current?.(...args),
@@ -185,7 +205,13 @@ export function useStreamChat<
 				setMessages,
 				setRunId: setRunIdWithSideEffects,
 			}),
-		[appendPart, appendText, setRunIdWithSideEffects],
+		[
+			appendPart,
+			appendText,
+			flushBufferedText,
+			setMessages,
+			setRunIdWithSideEffects,
+		],
 	);
 
 	const stop = useCallback(() => {
@@ -196,6 +222,7 @@ export function useStreamChat<
 
 		const activeRunId = activeRun.runId ?? runIdRef.current;
 		manuallyStoppedRef.current = true;
+		flushBufferedText();
 		void activeRun.stop();
 		runRef.current = null;
 		setIsLoading(false);
@@ -204,7 +231,7 @@ export function useStreamChat<
 			reason: "user",
 			runId: activeRunId,
 		});
-	}, [emitStatus, setRunIdWithSideEffects]);
+	}, [emitStatus, flushBufferedText, setRunIdWithSideEffects]);
 
 	const sendMessage = useCallback(
 		(text: string) => {
@@ -222,6 +249,8 @@ export function useStreamChat<
 				assistantMessage,
 			];
 
+			bufferedTextRef.current = "";
+			bufferedTokenCountRef.current = 0;
 			messagesRef.current = nextMessages;
 			setMessages(nextMessages);
 
@@ -246,6 +275,7 @@ export function useStreamChat<
 		[
 			emitStatus,
 			isLoading,
+			setMessages,
 			setRunIdWithSideEffects,
 			transport,
 			transportContext,
@@ -260,12 +290,7 @@ export function useStreamChat<
 	// same run id using `resumedRunIdRef`.
 	// -----------------------------------------------------------------------
 
-	const candidateRunId =
-		options.transportOptions?.backgroundSSE?.runId ??
-		options.transportOptions?.backgroundSSE?.getResumeKey?.() ??
-		options.transportOptions?.websocket?.runId ??
-		options.transportOptions?.websocket?.getResumeKey?.() ??
-		null;
+	const candidateRunId = getCandidateRunId(options);
 
 	useEffect(() => {
 		// Already have an active run — don't start another.
@@ -313,6 +338,7 @@ export function useStreamChat<
 	useEffect(() => {
 		return () => {
 			if (runRef.current) {
+				flushBufferedText();
 				emitStatus("stopped", {
 					reason: "unmount",
 					runId: runIdRef.current,
@@ -321,7 +347,7 @@ export function useStreamChat<
 			void runRef.current?.close?.();
 			runRef.current = null;
 		};
-	}, [emitStatus]);
+	}, [emitStatus, flushBufferedText]);
 
 	const prevIsLoadingRef = useRef(isLoading);
 	useEffect(() => {

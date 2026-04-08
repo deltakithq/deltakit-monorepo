@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ChatControllerOptions } from "../src/chat-controller";
+import type { ChatControllerOptions } from "../src/internal/chat-controller";
 import {
 	createChatTransportContext,
 	createMessage,
 	generateId,
-} from "../src/chat-controller";
+} from "../src/internal/chat-controller";
 
 function createMockOptions(
 	overrides: Partial<ChatControllerOptions> = {},

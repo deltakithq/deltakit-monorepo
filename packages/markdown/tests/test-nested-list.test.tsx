@@ -1,8 +1,8 @@
 import { render } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
-import { StreamingMarkdown } from "../src/component.js";
 import { parseIncremental } from "../src/core/parser.js";
+import { StreamingMarkdown } from "../src/react/component.js";
 
 function renderMarkdown(content: string) {
 	return render(createElement(StreamingMarkdown, { content, batchMs: 0 }));

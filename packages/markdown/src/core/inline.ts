@@ -1,3 +1,10 @@
+import {
+	appendText,
+	findClosingMarker,
+	findUrlEnd,
+	flushText,
+	parseLinkOrImage,
+} from "./inline/index.js";
 import type { InlineToken } from "./types.js";
 
 /**
@@ -25,7 +32,7 @@ export function parseInline(input: string): InlineToken[] {
 
 		if (!matched && input[pos] === "!" && input[pos + 1] === "[") {
 			// 2. Image: ![alt](src)
-			const result = parseLinkOrImage(input, pos + 1, true);
+			const result = parseLinkOrImage(input, pos + 1, true, parseInline);
 			if (result) {
 				flushText(tokens, input, pos);
 				tokens.push(result.token);
@@ -36,7 +43,7 @@ export function parseInline(input: string): InlineToken[] {
 
 		if (!matched && input[pos] === "[") {
 			// 3. Link: [text](url)
-			const result = parseLinkOrImage(input, pos, false);
+			const result = parseLinkOrImage(input, pos, false, parseInline);
 			if (result) {
 				flushText(tokens, input, pos);
 				tokens.push(result.token);
@@ -143,285 +150,4 @@ export function parseInline(input: string): InlineToken[] {
 	return tokens;
 }
 
-/** Append a character to the last text token, or create a new one */
-function appendText(tokens: InlineToken[], char: string): void {
-	const last = tokens[tokens.length - 1];
-	if (last && last.type === "text") {
-		last.value += char;
-	} else {
-		tokens.push({ type: "text", value: char });
-	}
-}
-
-/** Flush accumulated text - this is a no-op helper for clarity (text is already pushed char by char) */
-function flushText(_tokens: InlineToken[], _input: string, _pos: number): void {
-	// Text is accumulated char-by-char in the main loop via appendText,
-	// so there's nothing to flush here. This function exists as a semantic marker.
-}
-
-/** Parse a [text](url) or ![alt](src) construct */
-function parseLinkOrImage(
-	input: string,
-	bracketStart: number,
-	isImage: boolean,
-): { token: InlineToken; end: number } | null {
-	// Find closing ]
-	const closeBracket = input.indexOf("]", bracketStart + 1);
-	if (closeBracket === -1) return null;
-
-	// Must be followed by (
-	if (input[closeBracket + 1] !== "(") return null;
-
-	// Find closing )
-	const closeParen = input.indexOf(")", closeBracket + 2);
-	if (closeParen === -1) return null;
-
-	const text = input.slice(bracketStart + 1, closeBracket);
-	const url = input.slice(closeBracket + 2, closeParen);
-
-	if (isImage) {
-		return {
-			token: {
-				type: "image",
-				value: text,
-				alt: text,
-				href: url,
-			},
-			end: closeParen + 1,
-		};
-	}
-
-	return {
-		token: {
-			type: "link",
-			value: text,
-			href: url,
-			children: parseInline(text),
-		},
-		end: closeParen + 1,
-	};
-}
-
-/** Find the closing single marker (* or _), avoiding double markers */
-function findClosingMarker(
-	input: string,
-	start: number,
-	marker: string,
-): number {
-	for (let i = start; i < input.length; i++) {
-		if (input[i] === marker) {
-			// Make sure it's not a double marker (would be bold, not italic)
-			if (input[i + 1] === marker) {
-				i++; // Skip the double
-				continue;
-			}
-			return i;
-		}
-	}
-	return -1;
-}
-
-/** Find where a URL ends (space, newline, or end of string) */
-function findUrlEnd(input: string, start: number): number {
-	let i = start;
-	while (i < input.length) {
-		const ch = input[i];
-		if (ch === " " || ch === "\n" || ch === "\t" || ch === ")" || ch === "]") {
-			break;
-		}
-		i++;
-	}
-	// Strip trailing punctuation that's likely not part of the URL
-	while (i > start) {
-		const ch = input[i - 1];
-		if (ch === "." || ch === "," || ch === ";" || ch === ":" || ch === "!") {
-			i--;
-		} else {
-			break;
-		}
-	}
-	return i;
-}
-
-/**
- * Check if a string has unclosed inline markers.
- * Used for buffering incomplete syntax during streaming.
- * Returns the index from which content should be buffered, or -1 if all is safe.
- */
-export function findBufferPoint(input: string): number {
-	// Try to find the earliest unclosed marker by scanning forward
-	// and tracking open/close pairs.
-
-	const markerDefs = [
-		{ open: "**", close: "**" },
-		{ open: "__", close: "__" },
-		{ open: "~~", close: "~~" },
-		{ open: "`", close: "`" },
-	];
-
-	let earliestUnclosed = -1;
-
-	for (const { open, close } of markerDefs) {
-		const unclosedAt = findFirstUnclosed(input, open, close);
-		if (unclosedAt !== -1) {
-			if (earliestUnclosed === -1 || unclosedAt < earliestUnclosed) {
-				earliestUnclosed = unclosedAt;
-			}
-		}
-	}
-
-	const unclosedImage = findFirstUnclosedImage(input);
-	if (unclosedImage !== -1) {
-		if (earliestUnclosed === -1 || unclosedImage < earliestUnclosed) {
-			earliestUnclosed = unclosedImage;
-		}
-	}
-
-	const unclosedLink = findFirstUnclosedLink(input);
-	if (unclosedLink !== -1) {
-		if (earliestUnclosed === -1 || unclosedLink < earliestUnclosed) {
-			earliestUnclosed = unclosedLink;
-		}
-	}
-
-	// Also check single * and _ (italic), but skip positions that are part of ** or __
-	const unclosedStar = findFirstUnclosedSingle(input, "*");
-	if (unclosedStar !== -1) {
-		if (earliestUnclosed === -1 || unclosedStar < earliestUnclosed) {
-			earliestUnclosed = unclosedStar;
-		}
-	}
-
-	const unclosedUnderscore = findFirstUnclosedSingle(input, "_");
-	if (unclosedUnderscore !== -1) {
-		if (earliestUnclosed === -1 || unclosedUnderscore < earliestUnclosed) {
-			earliestUnclosed = unclosedUnderscore;
-		}
-	}
-
-	return earliestUnclosed;
-}
-
-/** Find the first unclosed opening marker by scanning forward */
-function findFirstUnclosed(input: string, open: string, close: string): number {
-	let pos = 0;
-
-	while (pos < input.length) {
-		const openIdx = input.indexOf(open, pos);
-		if (openIdx === -1) return -1;
-
-		// Find matching close after the open
-		const afterOpen = openIdx + open.length;
-		const closeIdx = input.indexOf(close, afterOpen);
-
-		if (closeIdx === -1) {
-			// No close found — this is unclosed
-			return openIdx;
-		}
-
-		// Found a close — skip past it and continue
-		pos = closeIdx + close.length;
-	}
-
-	return -1;
-}
-
-/** Find the first unclosed single marker (* or _), skipping double markers */
-function findFirstUnclosedSingle(input: string, marker: string): number {
-	let pos = 0;
-
-	while (pos < input.length) {
-		const idx = input.indexOf(marker, pos);
-		if (idx === -1) return -1;
-
-		// Skip if it's part of a double marker
-		if (input[idx + 1] === marker) {
-			// Skip the double marker pair
-			const closeDouble = input.indexOf(marker + marker, idx + 2);
-			if (closeDouble !== -1) {
-				pos = closeDouble + 2;
-			} else {
-				// Unclosed double marker — but that's handled by findFirstUnclosed
-				pos = idx + 2;
-			}
-			continue;
-		}
-
-		// Check if previous char is also the marker (we're at the second char of a double)
-		if (idx > 0 && input[idx - 1] === marker) {
-			pos = idx + 1;
-			continue;
-		}
-
-		// This is a single marker — find its close
-		const closeIdx = findClosingMarker(input, idx + 1, marker);
-		if (closeIdx === -1) {
-			// For _: don't buffer on intraword underscores
-			if (marker === "_" && idx > 0 && /\w/.test(input[idx - 1])) {
-				pos = idx + 1;
-				continue;
-			}
-			return idx;
-		}
-
-		// For _: skip intraword emphasis (CommonMark rule)
-		if (
-			marker === "_" &&
-			idx > 0 &&
-			/\w/.test(input[idx - 1]) &&
-			closeIdx + 1 < input.length &&
-			/\w/.test(input[closeIdx + 1])
-		) {
-			pos = closeIdx + 1;
-			continue;
-		}
-
-		pos = closeIdx + 1;
-	}
-
-	return -1;
-}
-
-/** Find the first unclosed markdown image marker `![alt](src)` */
-function findFirstUnclosedImage(input: string): number {
-	let pos = 0;
-
-	while (pos < input.length) {
-		const openIdx = input.indexOf("![", pos);
-		if (openIdx === -1) return -1;
-
-		const result = parseLinkOrImage(input, openIdx + 1, true);
-		if (!result) {
-			return openIdx;
-		}
-
-		pos = result.end;
-	}
-
-	return -1;
-}
-
-/** Find the first unclosed markdown link marker `[text](href)` (excluding images) */
-function findFirstUnclosedLink(input: string): number {
-	let pos = 0;
-
-	while (pos < input.length) {
-		const openIdx = input.indexOf("[", pos);
-		if (openIdx === -1) return -1;
-
-		// Skip image markers here; handled by findFirstUnclosedImage.
-		if (openIdx > 0 && input[openIdx - 1] === "!") {
-			pos = openIdx + 1;
-			continue;
-		}
-
-		const result = parseLinkOrImage(input, openIdx, false);
-		if (!result) {
-			return openIdx;
-		}
-
-		pos = result.end;
-	}
-
-	return -1;
-}
+export { findBufferPoint } from "./inline/index.js";

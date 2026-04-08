@@ -33,7 +33,7 @@ function ChatStatic() {
 		},
 	});
 
-	const { ref, scrollToBottom, isAtBottom } = useAutoScroll([messages]);
+	const { ref, scrollToBottom } = useAutoScroll([messages]);
 
 	return (
 		<div className="relative flex flex-1 flex-col min-h-0">
@@ -76,18 +76,6 @@ function ChatStatic() {
 					</div>
 				</div>
 			</div>
-
-			{!isAtBottom && (
-				<div className="pointer-events-none absolute inset-x-0 bottom-20 z-10 flex justify-center px-4">
-					<button
-						type="button"
-						onClick={scrollToBottom}
-						className="pointer-events-auto rounded-full bg-neutral-800/95 px-3 py-1 text-xs text-neutral-300 shadow-lg backdrop-blur hover:bg-neutral-700"
-					>
-						Scroll to bottom
-					</button>
-				</div>
-			)}
 
 			<div className="border-t border-neutral-800 bg-neutral-900">
 				<div className="mx-auto max-w-2xl p-4">

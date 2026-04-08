@@ -1,10 +1,10 @@
 import { render } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
-import { StreamingMarkdown } from "../src/component.js";
 import { parseInline } from "../src/core/inline.js";
 import { parseIncremental } from "../src/core/parser.js";
-import { Markdown } from "../src/static.js";
+import { StreamingMarkdown } from "../src/react/component.js";
+import { Markdown } from "../src/react/static.js";
 
 // ── Fixtures ──
 
@@ -219,6 +219,42 @@ function buildManyTables(count: number, rows: number): string {
 		parts.push("\n");
 	}
 	return parts.join("");
+}
+
+/** Build a single very large table */
+function buildHugeTable(rows: number, columns: number): string {
+	const header = Array.from(
+		{ length: columns },
+		(_, index) => `Column ${index + 1}`,
+	);
+	const separator = Array.from({ length: columns }, () => "---");
+	const lines = [`| ${header.join(" | ")} |`, `| ${separator.join(" | ")} |`];
+
+	for (let row = 0; row < rows; row++) {
+		const cells = Array.from(
+			{ length: columns },
+			(_, column) => `R${row + 1}C${column + 1}`,
+		);
+		lines.push(`| ${cells.join(" | ")} |`);
+	}
+
+	return `${lines.join("\n")}\n\n`;
+}
+
+/** Build a 3-column table with two hyperlink columns */
+function buildLinkedTable(rows: number): string {
+	const lines = [
+		"| Name | Documentation | Repository |",
+		"| --- | --- | --- |",
+	];
+
+	for (let row = 0; row < rows; row++) {
+		lines.push(
+			`| Item ${row + 1} | [Docs ${row + 1}](https://example.com/docs/${row + 1}) | [Repo ${row + 1}](https://github.com/example/project-${row + 1}) |`,
+		);
+	}
+
+	return `${lines.join("\n")}\n\n`;
 }
 
 /** Build many code blocks */
@@ -795,6 +831,42 @@ describe("performance", () => {
 			// Total DOM nodes should still be manageable
 			const nodeCount = container.querySelectorAll("*").length;
 			expect(nodeCount).toBeLessThan(3000);
+		});
+
+		it("should render a super big table with the expected structure", () => {
+			const rows = 400;
+			const columns = 8;
+			const content = buildHugeTable(rows, columns);
+
+			const { container } = render(createElement(Markdown, { content }));
+
+			expect(container.querySelectorAll("table")).toHaveLength(1);
+			expect(container.querySelectorAll("thead tr")).toHaveLength(1);
+			expect(container.querySelectorAll("tbody tr")).toHaveLength(rows);
+			expect(container.querySelectorAll("th")).toHaveLength(columns);
+			expect(container.querySelectorAll("tbody td")).toHaveLength(
+				rows * columns,
+			);
+			expect(container.textContent).toContain(`R${rows}C${columns}`);
+		});
+
+		it("should render a 100-row table with two hyperlink columns", () => {
+			const rows = 100;
+			const content = buildLinkedTable(rows);
+
+			const { container } = render(
+				createElement(StreamingMarkdown, {
+					content,
+					batchMs: 0,
+				}),
+			);
+
+			expect(container.querySelectorAll("table")).toHaveLength(1);
+			expect(container.querySelectorAll("tbody tr")).toHaveLength(rows);
+			expect(container.querySelectorAll("th")).toHaveLength(3);
+			expect(container.querySelectorAll("tbody td")).toHaveLength(rows * 3);
+			expect(container.querySelectorAll("tbody a")).toHaveLength(rows * 2);
+			expect(container.textContent).toContain("Item 100");
 		});
 	});
 

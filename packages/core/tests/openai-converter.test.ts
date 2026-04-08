@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fromOpenAiAgents } from "../src/openai-converter";
+import { fromOpenAiAgents } from "../src/converters/openai";
 
 // ---------------------------------------------------------------------------
 // Helpers

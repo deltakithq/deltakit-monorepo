@@ -26,15 +26,15 @@ Both libraries render the same markdown content via `renderToStaticMarkup`. Meas
 
 | Benchmark | @deltakit/markdown | react-markdown | Speedup |
 |-----------|-------------------|----------------|---------|
-| Short paragraph (~60 chars) | 174,000 ops/s | 25,000 ops/s | ~7.0x |
-| Mixed content (~1.2kb) | 6,825 ops/s | 1,040 ops/s | ~6.6x |
-| Streaming simulation (141 re-renders) | 76 ops/s | 16 ops/s | ~4.7x |
+| Short paragraph (~60 chars) | 162,000 ops/s | 26,700 ops/s | ~6.1x |
+| Mixed content (~1.2kb) | 5,625 ops/s | 1,129 ops/s | ~5.0x |
+| Streaming simulation (141 re-renders) | 73 ops/s | 17 ops/s | ~4.3x |
 
 ### Caveats
 
 These numbers are real, but context matters:
 
-- **@deltakit/markdown produces clean semantic HTML.** Blocks render directly as semantic elements (`<h1>`, `<p>`, `<pre>`, etc.) without wrapper `<div>` or `<span>` elements. Less DOM work naturally means faster rendering. This is not a same-output comparison.
+- **@deltakit/markdown produces leaner HTML.** Most blocks render directly as semantic elements (`<h1>`, `<p>`, `<pre>`, etc.) without per-block wrapper `<div>`s or per-inline `<span>` wrappers. `StreamingMarkdown` still uses a single outer container, so this is not a strict same-output comparison.
 - **react-markdown runs a full CommonMark pipeline.** It parses via micromark, transforms through the remark/rehype AST pipeline, and produces spec-compliant HTML. We run a simplified regex-based parser. Being faster while doing less work is expected, not remarkable.
 - **The streaming simulation uses `renderToStaticMarkup`.** This does NOT demonstrate our `React.memo` block memoization advantage. In a real browser with React reconciliation, settled blocks would usually be skipped unless later parsing extended the same block — but that's difficult to benchmark accurately in a synthetic test.
 
@@ -44,9 +44,9 @@ We also benchmark our parser (`parseIncremental`) against [micromark](https://gi
 
 | Benchmark | @deltakit/markdown | micromark | Speedup |
 |-----------|-------------------|-----------|---------|
-| Short paragraph | 3,720,000 ops/s | 26,500 ops/s | ~140x |
-| Mixed content (~1.2kb) | 219,700 ops/s | 1,351 ops/s | ~163x |
-| Streaming sim (141 parses) | 2,080 ops/s | 20.4 ops/s | ~102x |
+| Short paragraph | 3,183,000 ops/s | 29,600 ops/s | ~107.6x |
+| Mixed content (~1.2kb) | 190,100 ops/s | 1,419 ops/s | ~134.0x |
+| Streaming sim (141 parses) | 1,877 ops/s | 19.8 ops/s | ~94.8x |
 
 ### Caveats
 
@@ -69,10 +69,11 @@ The parse-only numbers show our parser is fast, but the magnitude of the speedup
 
 ### DOM Efficiency
 
-The renderer produces clean semantic HTML with no wrapper bloat:
+The renderer keeps the DOM lean without adding per-block or per-inline wrapper bloat:
 
-- **No wrapper `<div>` around blocks** — headings, paragraphs, code, lists render as direct semantic elements
+- **No per-block wrapper `<div>` bloat** — headings, paragraphs, code, and lists render as direct semantic elements
 - **No wrapper `<span>` around inline tokens** — text, bold, italic, code render without extra span wrappers
+- **Single outer container in `StreamingMarkdown`** — one root wrapper for the streamed tree, rather than extra wrappers around each rendered block
 - **Single shared `<style>` tag** — streaming CSS is injected once via a ref-counted singleton, not per component instance
 - **Static `Markdown` component** — for completed messages, skips all streaming overhead (batching, debouncing, opacity transitions)
 

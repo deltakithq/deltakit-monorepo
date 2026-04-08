@@ -4,7 +4,7 @@ import type {
 	ChatTransportContext,
 	EventHelpers,
 	UseStreamChatOptions,
-} from "./types";
+} from "../types";
 
 export interface ChatControllerOptions<
 	TPart extends { type: string } = ContentPart,
@@ -19,6 +19,7 @@ export interface ChatControllerOptions<
 	onFinish?: UseStreamChatOptions<TPart, TEvent>["onFinish"];
 	onMessage?: UseStreamChatOptions<TPart, TEvent>["onMessage"];
 	onStatusChange?: UseStreamChatOptions<TPart, TEvent>["onStatusChange"];
+	flushText?: () => void;
 	setError: Dispatch<SetStateAction<Error | null>>;
 	setIsLoading: Dispatch<SetStateAction<boolean>>;
 	setMessages: Dispatch<SetStateAction<Message<TPart>[]>>;
@@ -66,6 +67,7 @@ export function createChatTransportContext<
 		},
 		fail: (error) => {
 			const currentRunId = options.getRunId();
+			options.flushText?.();
 			options.setError(error);
 			options.onError?.(error);
 			options.setIsLoading(false);
@@ -78,6 +80,7 @@ export function createChatTransportContext<
 		},
 		finish: () => {
 			const currentRunId = options.getRunId();
+			options.flushText?.();
 			options.setIsLoading(false);
 			options.setRunId(null);
 

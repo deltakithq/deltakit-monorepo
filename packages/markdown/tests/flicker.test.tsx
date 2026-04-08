@@ -1,8 +1,8 @@
 import { render } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
-import { StreamingMarkdown } from "../src/component.js";
 import { parseIncremental } from "../src/core/parser.js";
+import { StreamingMarkdown } from "../src/react/component.js";
 
 /**
  * Flicker Regression Tests
@@ -10,7 +10,7 @@ import { parseIncremental } from "../src/core/parser.js";
  * These tests verify that partial markdown never renders broken syntax
  * (raw asterisks, backticks, brackets) during streaming.
  *
- * Based on SPEC.md section 8.1.
+ * Based on docs/SPEC.md section 8.1.
  */
 describe("flicker regression", () => {
 	/**

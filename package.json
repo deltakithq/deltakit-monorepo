@@ -6,6 +6,7 @@
 	"scripts": {
 		"dev": "moon run :dev",
 		"build": "moon run :build",
+		"verify:react-pack": "node scripts/verify-packed-react-manifest.mjs",
 		"check": "biome check .",
 		"check:fix": "biome check --write .",
 		"format": "biome check --write . --unsafe",

@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
-import { StreamingMarkdown } from "../src/component.js";
+import { StreamingMarkdown } from "../src/react/component.js";
 
 describe("XSS prevention in rendering", () => {
 	describe("link href sanitization", () => {

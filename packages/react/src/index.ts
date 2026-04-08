@@ -15,6 +15,8 @@ export {
 	fromOpenAiAgents,
 	parseSSEStream,
 } from "@deltakit/core";
+export { useAutoScroll } from "./hooks/use-auto-scroll";
+export { useStreamChat } from "./hooks/use-stream-chat";
 
 export type {
 	BackgroundSSETransportOptions,
@@ -29,9 +31,8 @@ export type {
 	TransportOptions,
 	UseAutoScrollOptions,
 	UseAutoScrollReturn,
+	UseStreamChatDebounceOptions,
 	UseStreamChatOptions,
 	UseStreamChatReturn,
 	WebSocketTransportOptions,
 } from "./types";
-export { useAutoScroll } from "./use-auto-scroll";
-export { useStreamChat } from "./use-stream-chat";
