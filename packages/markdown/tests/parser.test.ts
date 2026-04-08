@@ -1,6 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { parseIncremental } from "../src/core/parser.js";
 
+function buildHugeTable(rows: number, columns: number): string {
+	const header = Array.from(
+		{ length: columns },
+		(_, index) => `Column ${index + 1}`,
+	);
+	const separator = Array.from({ length: columns }, () => "---");
+	const lines = [`| ${header.join(" | ")} |`, `| ${separator.join(" | ")} |`];
+
+	for (let row = 0; row < rows; row++) {
+		const cells = Array.from(
+			{ length: columns },
+			(_, column) => `R${row + 1}C${column + 1}`,
+		);
+		lines.push(`| ${cells.join(" | ")} |`);
+	}
+
+	return `${lines.join("\n")}\n\n`;
+}
+
 describe("parseIncremental", () => {
 	describe("block detection", () => {
 		it("should parse a heading", () => {
@@ -145,6 +164,27 @@ describe("parseIncremental", () => {
 			expect(result.blocks).toHaveLength(1);
 			expect(result.blocks[0].type).toBe("table");
 			expect(result.blocks[0].complete).toBe(true);
+		});
+
+		it("should keep a super big table as one complete block", () => {
+			const rows = 1200;
+			const columns = 8;
+			const content = buildHugeTable(rows, columns);
+			const result = parseIncremental(content);
+
+			expect(result.buffered).toBe("");
+			expect(result.blocks).toHaveLength(1);
+			expect(result.blocks[0].type).toBe("table");
+			expect(result.blocks[0].complete).toBe(true);
+
+			const tableLines = result.blocks[0].raw.split("\n");
+			expect(tableLines).toHaveLength(rows + 2);
+			expect(tableLines.at(0)).toBe(
+				"| Column 1 | Column 2 | Column 3 | Column 4 | Column 5 | Column 6 | Column 7 | Column 8 |",
+			);
+			expect(tableLines.at(-1)).toBe(
+				"| R1200C1 | R1200C2 | R1200C3 | R1200C4 | R1200C5 | R1200C6 | R1200C7 | R1200C8 |",
+			);
 		});
 	});
 

@@ -3,8 +3,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ReactMarkdown from "react-markdown";
 import { bench, describe } from "vitest";
-import { StreamingMarkdown } from "../src/component.js";
 import { parseIncremental } from "../src/core/parser.js";
+import { StreamingMarkdown } from "../src/react/component.js";
 import {
 	BUNDLE_SIZES,
 	FEATURE_PARITY,
@@ -18,8 +18,8 @@ import {
  *
  * FAIRNESS NOTES:
  * - All benchmarks use renderToStaticMarkup for both libraries (same rendering path)
- * - react-markdown produces spec-compliant HTML; @deltakit/markdown wraps elements
- *   in extra <div>/<span> tags (less work, simpler output)
+ * - react-markdown produces spec-compliant HTML; @deltakit/markdown produces
+ *   leaner output with a single outer container and fewer wrapper elements
  * - react-markdown supports the full CommonMark spec + plugin ecosystem;
  *   @deltakit/markdown supports a subset optimized for AI streaming
  * - The "streaming simulation" here uses renderToStaticMarkup in a loop, which
@@ -30,8 +30,8 @@ import {
 
 // ── Static render comparison ──
 // Both libraries render the same markdown to HTML via renderToStaticMarkup.
-// NOTE: @deltakit/markdown produces simpler HTML (extra wrapper divs/spans,
-// no nested paragraph in blockquotes, etc.), so this is NOT an equal-output
+// NOTE: @deltakit/markdown produces leaner HTML (single outer container,
+// fewer wrapper elements, no nested paragraph in blockquotes, etc.), so this is NOT an equal-output
 // comparison. We do less work, so being faster here is expected.
 
 describe("static render — short paragraph", () => {
@@ -187,7 +187,7 @@ if (typeof globalThis !== "undefined") {
 
 	console.log("\n─── Fairness Disclaimers ───\n");
 	console.log(
-		"1. @deltakit/markdown produces simpler HTML (extra wrapper <div>/<span> tags).",
+		"1. @deltakit/markdown produces leaner HTML (single outer container, fewer wrapper elements).",
 	);
 	console.log("   react-markdown produces spec-compliant CommonMark HTML.");
 	console.log(

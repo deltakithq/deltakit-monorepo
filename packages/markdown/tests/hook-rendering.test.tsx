@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
-import { StreamingMarkdown } from "../src/component.js";
+import { StreamingMarkdown } from "../src/react/component.js";
 
 // Helper to render markdown with batchMs=0 for synchronous output
 function renderMarkdown(content: string, components?: Record<string, unknown>) {

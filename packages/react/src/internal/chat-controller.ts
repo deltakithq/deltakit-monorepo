@@ -4,7 +4,7 @@ import type {
 	ChatTransportContext,
 	EventHelpers,
 	UseStreamChatOptions,
-} from "./types";
+} from "../types";
 
 export interface ChatControllerOptions<
 	TPart extends { type: string } = ContentPart,

@@ -1,7 +1,7 @@
 import { act, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { useAutoScroll } from "../src/use-auto-scroll";
+import { useAutoScroll } from "../src/hooks/use-auto-scroll";
 
 class ResizeObserverMock {
 	private readonly callback?: ResizeObserverCallback;

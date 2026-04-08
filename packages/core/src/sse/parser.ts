@@ -1,4 +1,4 @@
-import type { SSEEvent } from "./types";
+import type { SSEEvent } from "../types";
 
 /**
  * Parse a `ReadableStream<Uint8Array>` (from a `fetch` response body)

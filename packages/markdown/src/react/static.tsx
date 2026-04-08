@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import { createElement, Fragment, useMemo } from "react";
-import { parseIncremental } from "./core/parser.js";
-import type { MarkdownProps } from "./core/types.js";
+import { parseIncremental } from "../core/parser.js";
+import type { MarkdownProps } from "../core/types.js";
+import { mergeComponents } from "../renderers/defaults.js";
 import { renderBlock } from "./hook.js";
-import { mergeComponents } from "./renderers/defaults.js";
 
 /**
  * `<Markdown />` — Lightweight React component for rendering complete markdown.

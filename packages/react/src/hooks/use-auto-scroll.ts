@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { UseAutoScrollOptions, UseAutoScrollReturn } from "./types";
+import type { UseAutoScrollOptions, UseAutoScrollReturn } from "../types";
 
 // ---------------------------------------------------------------------------
 // Constants

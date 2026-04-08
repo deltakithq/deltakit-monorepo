@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fromAgnoAgents } from "../src/agno-converter";
+import { fromAgnoAgents } from "../src/converters/agno";
 
 // ---------------------------------------------------------------------------
 // Helpers

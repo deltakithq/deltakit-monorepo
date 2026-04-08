@@ -1,6 +1,6 @@
 {
 	"name": "@deltakit/markdown",
-	"version": "0.3.3",
+	"version": "0.4.0",
 	"description": "Stream markdown in AI chat without flicker or broken syntax",
 	"homepage": "https://deltakit.dev",
 	"type": "module",
@@ -57,6 +57,7 @@
 		"@types/react-dom": "^18.3.5",
 		"jsdom": "^28.1.0",
 		"micromark": "^4.0.0",
+		"prismjs": "^1.30.0",
 		"react-markdown": "^10.1.0",
 		"remark-parse": "^11.0.0",
 		"unified": "^11.0.0",

@@ -1,7 +1,10 @@
 import type { ContentPart, SSEEvent } from "@deltakit/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createChatTransportContext, createMessage } from "./chat-controller";
-import { resolveTransport } from "./transports";
+import {
+	createChatTransportContext,
+	createMessage,
+} from "../internal/chat-controller";
+import { resolveTransport } from "../internal/transports";
 import type {
 	ChatTransportRun,
 	EventHelpers,
@@ -9,23 +12,13 @@ import type {
 	StreamStatusContext,
 	UseStreamChatOptions,
 	UseStreamChatReturn,
-} from "./types";
-
-// ---------------------------------------------------------------------------
-// Default event handler — accumulates `text_delta` into the last
-// assistant message's parts.
-// ---------------------------------------------------------------------------
-
-function defaultOnEvent(
-	event: SSEEvent,
-	helpers: EventHelpers<ContentPart>,
-): void {
-	if (event.type === "text_delta") {
-		helpers.appendText(event.delta);
-	}
-	// Other event types (e.g. tool_call) are silently ignored by default.
-	// Users can provide their own `onEvent` to handle them.
-}
+} from "../types";
+import {
+	appendPartToMessages,
+	appendTextToMessages,
+	defaultOnEvent,
+	getCandidateRunId,
+} from "./use-stream-chat/index";
 
 // ---------------------------------------------------------------------------
 // useStreamChat
@@ -73,40 +66,11 @@ export function useStreamChat<
 	transportOptionsRef.current = options.transportOptions;
 
 	const appendText = useCallback((delta: string) => {
-		setMessages((prev) => {
-			const last = prev[prev.length - 1];
-			if (!last || last.role !== "assistant") return prev;
-
-			const parts = [...last.parts];
-			const lastPart = parts[parts.length - 1];
-
-			if (lastPart && lastPart.type === "text" && "text" in lastPart) {
-				const textPart = lastPart as { type: "text"; text: string };
-				parts[parts.length - 1] = {
-					...lastPart,
-					text: textPart.text + delta,
-				} as unknown as TPart;
-			} else {
-				parts.push({ type: "text", text: delta } as unknown as TPart);
-			}
-
-			return [...prev.slice(0, -1), { ...last, parts }];
-		});
+		setMessages((prev) => appendTextToMessages(prev, delta));
 	}, []);
 
 	const appendPart = useCallback((part: TPart) => {
-		setMessages((prev) => {
-			const last = prev[prev.length - 1];
-			if (!last || last.role !== "assistant") return prev;
-
-			return [
-				...prev.slice(0, -1),
-				{
-					...last,
-					parts: [...last.parts, part],
-				},
-			];
-		});
+		setMessages((prev) => appendPartToMessages(prev, part));
 	}, []);
 
 	// Stabilise transport creation: resolve once and store in a ref so that
@@ -260,12 +224,7 @@ export function useStreamChat<
 	// same run id using `resumedRunIdRef`.
 	// -----------------------------------------------------------------------
 
-	const candidateRunId =
-		options.transportOptions?.backgroundSSE?.runId ??
-		options.transportOptions?.backgroundSSE?.getResumeKey?.() ??
-		options.transportOptions?.websocket?.runId ??
-		options.transportOptions?.websocket?.getResumeKey?.() ??
-		null;
+	const candidateRunId = getCandidateRunId(options);
 
 	useEffect(() => {
 		// Already have an active run — don't start another.

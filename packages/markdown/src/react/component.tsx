@@ -7,14 +7,14 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { parseIncremental } from "./core/parser.js";
+import { parseIncremental } from "../core/parser.js";
 import type {
 	Block,
 	ComponentOverrides,
 	StreamingMarkdownProps,
-} from "./core/types.js";
+} from "../core/types.js";
+import { mergeComponents } from "../renderers/defaults.js";
 import { renderBlock } from "./hook.js";
-import { mergeComponents } from "./renderers/defaults.js";
 
 /**
  * CSS styles for smooth opacity transition on streaming blocks.

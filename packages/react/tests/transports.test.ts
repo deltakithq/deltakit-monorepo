@@ -4,7 +4,7 @@ import {
 	createDirectSSETransport,
 	createWebSocketTransport,
 	resolveTransport,
-} from "../src/transports";
+} from "../src/internal/transports";
 import type { ChatTransportContext } from "../src/types";
 
 // ---------------------------------------------------------------------------

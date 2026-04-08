@@ -1,7 +1,7 @@
-export { fromAgnoAgents } from "./agno-converter";
-export { fromOpenAiAgents } from "./openai-converter";
+export { fromAgnoAgents } from "./converters/agno";
+export { fromOpenAiAgents } from "./converters/openai";
 
-export { parseSSEStream } from "./sse-parser";
+export { parseSSEStream } from "./sse/parser";
 
 export type {
 	ContentPart,

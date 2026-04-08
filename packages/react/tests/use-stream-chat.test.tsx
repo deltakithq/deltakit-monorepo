@@ -1,5 +1,6 @@
 import { act, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { useStreamChat } from "../src/hooks/use-stream-chat";
 import type {
 	ChatTransport,
 	ChatTransportContext,
@@ -7,7 +8,6 @@ import type {
 	SSEEvent,
 	UseStreamChatOptions,
 } from "../src/types";
-import { useStreamChat } from "../src/use-stream-chat";
 
 // ---------------------------------------------------------------------------
 // HookHarness — follows the existing pattern from use-auto-scroll.test.tsx
